@@ -74,8 +74,6 @@ def setup_logging(log_level=None, log_file=None):
     log handler to use for logging
     """
 
-    log_format = '%(asctime)s - %(levelname)s: %(message)s'
-
     if log_level is None or log_level == "":
         do_error_exit("log level undefined or empty. Check config please.")
 
@@ -83,7 +81,13 @@ def setup_logging(log_level=None, log_file=None):
     if not log_level.upper() in valid_log_levels:
         do_error_exit(f"Passed invalid log level: {log_level}")
 
-    # check the provided log level
+    # Set default log format
+    log_format = '%(asctime)s - %(levelname)s: %(message)s'
+
+    if log_level.startswith("DEBUG"):
+        log_format = '%(asctime)s - %(levelname)s: [%(filename)s:%(lineno)d]: %(message)s'
+
+    # Determine numeric log level and format
     if log_level == "DEBUG2":
         numeric_log_level = DEBUG2
     elif log_level == "DEBUG3":
