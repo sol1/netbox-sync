@@ -204,9 +204,8 @@ class ConfigParser:
         if len(config_file) == 0:
             raise ValueError(f"value for 'config_file' can't be empty")
 
-        base_dir = os.sep.join(__file__.split(os.sep)[0:-3])
-        if config_file[0] != os.sep:
-            config_file = f"{base_dir}{os.sep}{config_file}"
+        if not os.path.isabs(config_file):
+            config_file = os.path.realpath(os.path.join(os.getcwd(), config_file))
 
         return os.path.realpath(config_file)
 
