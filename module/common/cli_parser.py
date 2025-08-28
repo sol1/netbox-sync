@@ -66,8 +66,8 @@ def parse_command_line(self_description=None):
         if len(config_file) == 0:
             continue
 
-        if config_file != default_config_file_path and config_file[0] != os.sep:
-            config_file = os.path.realpath(os.getcwd() + os.sep + config_file)
+        if config_file != default_config_file_path and not os.path.isabs(config_file):
+            config_file = os.path.realpath(os.path.join(os.getcwd(), config_file))
         fixed_config_files.append(config_file)
 
     args.config_files = fixed_config_files

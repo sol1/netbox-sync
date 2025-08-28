@@ -1,6 +1,9 @@
 # Exclude all hidden files
 .*
 
+# Exclude all hidden files
+venv
+
 # Except those related to git
 !.git*
 
