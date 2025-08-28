@@ -18,10 +18,10 @@ from module.config.group import ConfigOptionGroup
 from module.sources.common.config import *
 from module.sources.common.permitted_subnets import PermittedSubnets
 from module.sources.common.handle_vlan import FilterVLANByID, FilterVLANByName
-from module.common.logging import get_logger
+from loguru import logger
 from module.common.support import normalize_mac_address
 
-log = get_logger()
+
 
 
 class VMWareConfig(ConfigBase):
@@ -456,7 +456,7 @@ class VMWareConfig(ConfigBase):
                 try:
                     re_compiled = re.compile(option.value)
                 except Exception as e:
-                    log.error(f"Problem parsing regular expression for '{self.source_name}.{option.key}': {e}")
+                    logger.error(f"Problem parsing regular expression for '{self.source_name}.{option.key}': {e}")
                     self.set_validation_failed()
 
                 option.set_value(re_compiled)
@@ -481,7 +481,7 @@ class VMWareConfig(ConfigBase):
                     relation_name = relation.split("=")[1].strip(' "')
 
                     if len(object_name) == 0 or len(relation_name) == 0:
-                        log.error(f"Config option '{relation}' malformed got '{object_name}' for "
+                        logger.error(f"Config option '{relation}' malformed got '{object_name}' for "
                                   f"object name and '{relation_name}' for {relation_type} name.")
                         self.set_validation_failed()
                         continue
@@ -489,7 +489,7 @@ class VMWareConfig(ConfigBase):
                     try:
                         re_compiled = re.compile(object_name)
                     except Exception as e:
-                        log.error(f"Problem parsing regular expression '{object_name}' for '{relation}': {e}")
+                        logger.error(f"Problem parsing regular expression '{object_name}' for '{relation}': {e}")
                         self.set_validation_failed()
                         continue
 
@@ -514,14 +514,14 @@ class VMWareConfig(ConfigBase):
 
                 for tag_source_option in option.value:
                     if tag_source_option not in valid_tag_sources:
-                        log.error(f"Tag source '{tag_source_option}' for '{option.key}' option invalid.")
+                        logger.error(f"Tag source '{tag_source_option}' for '{option.key}' option invalid.")
                         self.set_validation_failed()
 
                 continue
 
             if option.key == "set_primary_ip":
                 if option.value not in ["always", "when-undefined", "never"]:
-                    log.error(f"Primary IP option '{option.key}' value '{option.value}' invalid.")
+                    logger.error(f"Primary IP option '{option.key}' value '{option.value}' invalid.")
                     self.set_validation_failed()
 
             if option.key == "custom_dns_servers":
@@ -538,7 +538,7 @@ class VMWareConfig(ConfigBase):
                     try:
                         tested_custom_dns_servers.append(str(ip_address(custom_dns_server)))
                     except ValueError:
-                        log.error(f"Config option 'custom_dns_servers' value '{custom_dns_server}' "
+                        logger.error(f"Config option 'custom_dns_servers' value '{custom_dns_server}' "
                                   f"does not appear to be an IP address.")
                         self.set_validation_failed()
 
@@ -558,12 +558,12 @@ class VMWareConfig(ConfigBase):
 
                 for ip_tenant_inheritance in option.value:
                     if ip_tenant_inheritance not in ["device", "prefix", "disabled"]:
-                        log.error(f"Config value '{ip_tenant_inheritance}' invalid for "
+                        logger.error(f"Config value '{ip_tenant_inheritance}' invalid for "
                                   f"config option 'ip_tenant_inheritance_order'!")
                         self.set_validation_failed()
 
                 if len(option.value) > 2:
-                    log.error("Config option 'ip_tenant_inheritance_order' can contain only 2 items max")
+                    logger.error("Config option 'ip_tenant_inheritance_order' can contain only 2 items max")
                     self.set_validation_failed()
 
             if option.key == "host_nic_exclude_by_mac_list":
@@ -575,7 +575,7 @@ class VMWareConfig(ConfigBase):
                     normalized_mac_address = normalize_mac_address(mac_address)
 
                     if len(f"{normalized_mac_address}") != 17:
-                        log.error(f"MAC address '{mac_address}' for 'host_nic_exclude_by_mac_list' invalid.")
+                        logger.error(f"MAC address '{mac_address}' for 'host_nic_exclude_by_mac_list' invalid.")
                         self.set_validation_failed()
                     else:
                         value_list.append(normalized_mac_address)
@@ -616,7 +616,7 @@ class VMWareConfig(ConfigBase):
                     if "relation" in option.key:
 
                         if "=" not in single_option_value:
-                            log.error(f"Config option '{option.key}' malformed, got {single_option_value} but "
+                            logger.error(f"Config option '{option.key}' malformed, got {single_option_value} but "
                                       f"needs key = value relation.")
                             self.set_validation_failed()
                             continue
@@ -624,7 +624,7 @@ class VMWareConfig(ConfigBase):
                         relation_name = single_option_value.split("=")[1].strip(' "')
 
                         if relation_name is not None and len(relation_name) == 0:
-                            log.error(f"Config option '{option.key}' malformed, got '{object_name}' as "
+                            logger.error(f"Config option '{option.key}' malformed, got '{object_name}' as "
                                       f"object name and relation name was empty.")
                             self.set_validation_failed()
                             continue

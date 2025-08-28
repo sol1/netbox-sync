@@ -11,10 +11,10 @@ import json
 
 from module.netbox import *
 from module.common.misc import grab
-from module.common.logging import get_logger
+from loguru import logger
 from module.common.support import perform_ptr_lookups
 
-log = get_logger()
+
 
 
 class NetBoxInventory:
@@ -206,7 +206,7 @@ class NetBoxInventory:
         self.base_structure[object_type.name].append(new_object)
 
         if read_from_netbox is False:
-            log.info(f"Created new {new_object.name} object: {new_object.get_display_name()}")
+            logger.info(f"Created new {new_object.name} object: {new_object.get_display_name()}")
 
         return new_object
 
@@ -231,7 +231,7 @@ class NetBoxInventory:
         """
 
         if data is None:
-            log.error(f"Unable to find {object_type.name} object, parameter 'data' is 'None'")
+            logger.error(f"Unable to find {object_type.name} object, parameter 'data' is 'None'")
             return None
 
         # try to find exiting object based on submitted data
@@ -250,14 +250,14 @@ class NetBoxInventory:
         Resolve relations of all objects in the inventory. Used after data is read from NetBox.
         """
 
-        log.debug("Start resolving relations")
+        logger.debug("Start resolving relations")
         for object_type in NetBoxObject.__subclasses__():
 
             for this_object in self.get_all_items(object_type):
 
                 this_object.resolve_relations()
 
-        log.debug("Finished resolving relations")
+        logger.debug("Finished resolving relations")
 
     def get_all_items(self, object_type):
         """
@@ -351,7 +351,7 @@ class NetBoxInventory:
                 else:
 
                     if bool(set(this_object_tags).intersection(disabled_sources_tags)) is True:
-                        log.debug2(f"Object {this_object.__class__.name} '{this_object.get_display_name()}' was added "
+                        logger.trivial(f"Object {this_object.__class__.name} '{this_object.get_display_name()}' was added "
                                    f"from a currently disabled source. Skipping orphaned tagging.")
                         continue
 
@@ -381,7 +381,7 @@ class NetBoxInventory:
                             if netbox_handler.orphaned_tag in this_object.get_tags():
                                 this_object.remove_tags(netbox_handler.orphaned_tag)
 
-                            log.debug2(f"{device_vm_object.name} '{device_vm_object.get_display_name()}' has IP "
+                            logger.trivial(f"{device_vm_object.name} '{device_vm_object.get_display_name()}' has IP "
                                        f"'{this_object.get_display_name()}' assigned but is in status "
                                        f"{grab(device_vm_object, 'data.status')}. "
                                        f"IP address will not marked as orphaned.")
@@ -394,7 +394,7 @@ class NetBoxInventory:
         Perform a DNS lookup for all IP address of a certain source if desired.
         """
 
-        log.debug("Starting to look up PTR records for IP addresses")
+        logger.debug("Starting to look up PTR records for IP addresses")
 
         # store IP addresses to look them up in bulk
         ip_lookup_dict = dict()
@@ -443,7 +443,7 @@ class NetBoxInventory:
 
                     ip.update(data={"dns_name": dns_name})
 
-        log.debug("Finished to look up PTR records for IP addresses")
+        logger.debug("Finished to look up PTR records for IP addresses")
 
     def to_dict(self):
         """

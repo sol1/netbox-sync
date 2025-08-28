@@ -11,7 +11,9 @@ import os
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-from module.common.logging import valid_log_levels
+from loguru import logger
+
+from module.common.logging import DEFAULT_LOG_LEVELS
 from module.config import default_config_file_path
 from module import __version__, __version_date__, __url__
 
@@ -45,7 +47,7 @@ def parse_command_line(self_description=None):
     parser.add_argument("-g", "--generate_config", action="store_true",
                         help="generates default config file.")
 
-    parser.add_argument("-l", "--log_level", choices=valid_log_levels,
+    parser.add_argument("-l", "--log_level", choices=DEFAULT_LOG_LEVELS,
                         help="set log level (overrides config)")
 
     parser.add_argument("-n", "--dry_run", action="store_true",
@@ -61,7 +63,6 @@ def parse_command_line(self_description=None):
     # fix supplied config file path
     fixed_config_files = list()
     for config_file in args.config_files:
-
         if len(config_file) == 0:
             continue
 

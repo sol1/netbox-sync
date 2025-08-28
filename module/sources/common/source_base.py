@@ -13,10 +13,10 @@ from ipaddress import ip_interface, ip_address, IPv6Address, IPv4Address, IPv6Ne
 from packaging import version
 
 from module.netbox import *
-from module.common.logging import get_logger
+from loguru import logger
 from module.common.misc import grab
 
-log = get_logger()
+
 
 
 class SourceBase:
@@ -93,7 +93,7 @@ class SourceBase:
         if not isinstance(interface_data_dict, dict):
             raise ValueError(f"Value for 'interface_data_dict' must be a dict, got: {interface_data_dict}")
 
-        log.debug2("Trying to match current object interfaces in NetBox with discovered interfaces")
+        logger.trivial("Trying to match current object interfaces in NetBox with discovered interfaces")
 
         current_object_interfaces = {
             "virtual": dict(),
@@ -120,7 +120,7 @@ class SourceBase:
                 current_object_interfaces[int_name] = interface
                 current_object_interface_names.append(int_name)
 
-        log.debug2("Found '%d' NICs in NetBox for '%s'" %
+        logger.trivial("Found '%d' NICs in NetBox for '%s'" %
                    (len(current_object_interface_names), device_vm_object.get_display_name()))
 
         unmatched_interface_names = list()
@@ -137,18 +137,18 @@ class SourceBase:
             # match simply by name
             matching_int = None
             if int_name in current_object_interface_names:
-                log.debug2(f"Found 1:1 name match for NIC '{int_name}'")
+                logger.trivial(f"Found 1:1 name match for NIC '{int_name}'")
                 matching_int = current_object_interfaces.get(int_name)
 
             # match mac by interface type
             elif grab(current_object_interfaces, f"{int_type}.{int_mac}") is not None:
-                log.debug2(f"Found 1:1 MAC address match for {int_type} NIC '{int_name}'")
+                logger.trivial(f"Found 1:1 MAC address match for {int_type} NIC '{int_name}'")
                 matching_int = grab(current_object_interfaces, f"{int_type}.{int_mac}")
 
             # match mac regardless of interface type
             elif current_object_interfaces.get(int_mac) is not None and \
                     current_object_interfaces.get(int_mac) not in return_data.values():
-                log.debug2(f"Found 1:1 MAC address match for NIC '{int_name}' (ignoring interface type)")
+                logger.trivial(f"Found 1:1 MAC address match for NIC '{int_name}' (ignoring interface type)")
                 matching_int = current_object_interfaces.get(int_mac)
 
             if isinstance(matching_int, (NBInterface, NBVMInterface)):
@@ -174,7 +174,7 @@ class SourceBase:
 
             for new_int, current_int in matching_nics.items():
                 current_int_object = current_object_interfaces.get(current_int)
-                log.debug2(f"Matching '{new_int}' to NetBox Interface '{current_int_object.get_display_name()}'")
+                logger.trivial(f"Matching '{new_int}' to NetBox Interface '{current_int_object.get_display_name()}'")
                 return_data[new_int] = current_int_object
 
         return return_data
@@ -207,7 +207,7 @@ class SourceBase:
             site_object = self.inventory.get_by_data(NBSite, data={"name": site_name})
 
             if site_object is None:
-                log.error(f"Unable to find site '{site_name}' for IP {ip_to_match}. "
+                logger.error(f"Unable to find site '{site_name}' for IP {ip_to_match}. "
                           "Skipping to find Prefix for this IP.")
                 return
 
@@ -275,7 +275,7 @@ class SourceBase:
         ip_tenant_inheritance_order = self.settings.ip_tenant_inheritance_order
 
         if not isinstance(interface_data, dict):
-            log.error(f"Attribute 'interface_data' must be a dict() got {type(interface_data)}.")
+            logger.error(f"Attribute 'interface_data' must be a dict() got {type(interface_data)}.")
             return None
 
         device_object_cluster = grab(device_object, "data.cluster")
@@ -288,15 +288,15 @@ class SourceBase:
             interface_class = NBInterface
             site_name = device_object.get_site_name()
         elif device_object is None:
-            log.error(f"No device/VM object submitted to attach interface '{grab(interface_data, 'name')}' to.")
+            logger.error(f"No device/VM object submitted to attach interface '{grab(interface_data, 'name')}' to.")
             return None
         else:
-            log.error(f"Device object for interface '{grab(interface_data, 'name')}' must be a 'NBVM' or 'NBDevice'. "
+            logger.error(f"Device object for interface '{grab(interface_data, 'name')}' must be a 'NBVM' or 'NBDevice'. "
                       f"Got {type(device_object)}")
             return None
 
         if interface_object is not None and not isinstance(interface_object, interface_class):
-            log.error(f"Interface object '{grab(interface_data, 'name')}' must be a '{interface_class.name}'.")
+            logger.error(f"Interface object '{grab(interface_data, 'name')}' must be a '{interface_class.name}'.")
             return None
 
         # get vlans from interface data and remove it for now from interface data dict
@@ -363,7 +363,7 @@ class SourceBase:
         # skip handling of IPs for VMs with not installed/running guest tools
         skip_ip_handling = False
         if type(device_object) == NBVM and grab(vmware_object,'guest.toolsRunningStatus') != "guestToolsRunning":
-            log.debug(f"VM '{device_object.name}' guest tool status is 'NotRunning', skipping IP handling")
+            logger.debug(f"VM '{device_object.name}' guest tool status is 'NotRunning', skipping IP handling")
             skip_ip_handling = True
 
         ip_address_objects = list()
@@ -381,11 +381,11 @@ class SourceBase:
                 else:
                     ip_object = ip_address(nic_ip)
             except ValueError:
-                log.error(f"IP '{nic_ip}' ({interface_object.get_display_name()}) does not appear "
+                logger.error(f"IP '{nic_ip}' ({interface_object.get_display_name()}) does not appear "
                           "to be a valid IP address. Skipping!")
                 continue
 
-            log.debug2(f"Trying to find prefix for IP: {ip_object}")
+            logger.trivial(f"Trying to find prefix for IP: {ip_object}")
 
             possible_ip_vrf = None
             prefix_tenant = None
@@ -403,15 +403,15 @@ class SourceBase:
                 this_prefix = grab(matching_ip_prefix, f"data.{NBPrefix.primary_key}")
                 prefix_scope = matching_ip_prefix.get_scope_display_name()
                 if prefix_scope is None:
-                    log.debug2(f"Found IP '{ip_object}' matches global prefix '{this_prefix}'")
+                    logger.trivial(f"Found IP '{ip_object}' matches global prefix '{this_prefix}'")
                 else:
-                    log.debug2(f"Found IP '{ip_object}' matches {prefix_scope} prefix "
+                    logger.trivial(f"Found IP '{ip_object}' matches {prefix_scope} prefix "
                                f"'{this_prefix}'")
 
                 # check if prefix net size and ip address prefix length match
                 if not isinstance(ip_object, (IPv6Address, IPv4Address)) and \
                         this_prefix.prefixlen != ip_object.network.prefixlen:
-                    log.warning(f"IP prefix length of '{ip_object}' ({interface_object.get_display_name()}) "
+                    logger.warning(f"IP prefix length of '{ip_object}' ({interface_object.get_display_name()}) "
                                 f"does not match network prefix length '{this_prefix}'!")
 
                 possible_ip_vrf = grab(matching_ip_prefix, "data.vrf")
@@ -424,10 +424,10 @@ class SourceBase:
 
                 # check if IP address is of type IP interface (includes prefix length)
                 if type(ip_object) in [IPv6Address, IPv4Address]:
-                    log.warning(f"{log_text}. Unable to add IP address to NetBox")
+                    logger.warning(f"{log_text}. Unable to add IP address to NetBox")
                     continue
                 else:
-                    log.debug2(log_text)
+                    logger.trivial(log_text)
 
             # try to add prefix length to IP address if present
             if matching_ip_prefix is not None and type(ip_object) in [IPv6Address, IPv4Address]:
@@ -435,7 +435,7 @@ class SourceBase:
                 if type(this_prefix) in [IPv4Network, IPv6Network]:
                     ip_object = ip_interface(f"{ip_object}/{this_prefix.prefixlen}")
                 else:
-                    log.warning(f"{matching_ip_prefix.name} got wrong format. Unable to add IP address to NetBox")
+                    logger.warning(f"{matching_ip_prefix.name} got wrong format. Unable to add IP address to NetBox")
                     continue
 
             # try to find matching IP address object
@@ -471,7 +471,7 @@ class SourceBase:
                     current_ip_nic_str = "" if not isinstance(current_ip_nic, NetBoxObject) else \
                         " "+current_ip_nic.get_display_name()
 
-                    log.warning(f"Possibly wrongly assigned VRF for{current_ip_nic_str} IP "
+                    logger.warning(f"Possibly wrongly assigned VRF for{current_ip_nic_str} IP "
                                 f"'{ip_address_string}'. Current VRF '{current_vrf_str}' and "
                                 f"possible VRF '{possible_ip_vrf_str}'")
                     continue
@@ -495,28 +495,28 @@ class SourceBase:
                     current_nic_enabled = False
 
                 if current_nic_enabled is True and this_nic_enabled is False:
-                    log.debug(f"Current interface '{current_ip_nic.get_display_name()}' for IP '{ip_object}'"
+                    logger.debug(f"Current interface '{current_ip_nic.get_display_name()}' for IP '{ip_object}'"
                               f" is enabled and this one '{interface_object.get_display_name()}' is disabled. "
                               f"IP assignment skipped!")
                     skip_this_ip = True
                     break
 
                 if current_nic_enabled is False and this_nic_enabled is True:
-                    log.debug(f"Current interface '{current_ip_nic.get_display_name()}' for IP '{ip_object}'"
+                    logger.debug(f"Current interface '{current_ip_nic.get_display_name()}' for IP '{ip_object}'"
                               f" is disabled and this one '{interface_object.get_display_name()}' is enabled. "
                               f"IP will be assigned to this interface.")
 
                     this_ip_object = ip
 
                 if grab(ip, "data.role.value") == "anycast":
-                    log.debug(f"{ip.name} '{ip.get_display_name()}' is an Anycast address and "
+                    logger.debug(f"{ip.name} '{ip.get_display_name()}' is an Anycast address and "
                               f"can be assigned to multiple interfaces at the same time.")
                     skip_this_ip = True
                     break
 
                 if current_nic_enabled == this_nic_enabled:
 
-                    this_log_handler = log.warning
+                    this_log_handler = logger.warning
                     state = "enabled" if this_nic_enabled is True else "disabled"
                     log_msg = (f"Current interface '{current_ip_nic.get_display_name()}' for IP "
                                f"'{ip_object}' and this one '{interface_object.get_display_name()}' are "
@@ -526,7 +526,7 @@ class SourceBase:
                             getattr(self, "parsing_objects_to_reevaluate", True) is False:
                         if vmware_object not in self.objects_to_reevaluate:
                             self.objects_to_reevaluate.append(vmware_object)
-                        this_log_handler = log.debug
+                        this_log_handler = logger.debug
                         log_msg += f" The {device_object.name} will be checked later again to see if " \
                                    f"current interface status or association has changed"
                     else:
@@ -554,7 +554,7 @@ class SourceBase:
                                                                      nb_id=current_ip_nic_parent.get("id"))
 
                 if current_ip_nic_parent == interface_object:
-                    log.debug(f"{this_ip_object.name} '{this_ip_object.get_display_name()}' is assigned to sub interface "
+                    logger.debug(f"{this_ip_object.name} '{this_ip_object.get_display_name()}' is assigned to sub interface "
                               f"'{current_ip_nic.get_display_name()}' of '{interface_object.get_display_name()}'. "
                               f"Not changing assignment")
                     nic_ip_data["assigned_object_id"] = current_ip_nic
@@ -579,14 +579,14 @@ class SourceBase:
                 nic_ip_data["tenant"] = ip_tenant
 
             if not isinstance(this_ip_object, NBIPAddress):
-                log.debug(f"No existing {NBIPAddress.name} object found. Creating a new one.")
+                logger.debug(f"No existing {NBIPAddress.name} object found. Creating a new one.")
 
                 this_ip_object = self.inventory.add_object(NBIPAddress, data=nic_ip_data, source=self)
 
             # update IP address with additional data if not already present
             else:
 
-                log.debug2(f"Found existing NetBox {NBIPAddress.name} object: {this_ip_object.get_display_name()}")
+                logger.trivial(f"Found existing NetBox {NBIPAddress.name} object: {this_ip_object.get_display_name()}")
 
                 this_ip_object.update(data=nic_ip_data, source=self)
 
@@ -598,12 +598,12 @@ class SourceBase:
                 continue
 
             if grab(current_ip, "data.role.value") == "anycast":
-                log.debug2(f"{current_ip.name} '{current_ip.get_display_name()}' is an Anycast address and will "
+                logger.trivial(f"{current_ip.name} '{current_ip.get_display_name()}' is an Anycast address and will "
                           f"NOT be deleted from interface")
                 continue
 
             if current_ip not in ip_address_objects:
-                log.info(f"{current_ip.name} is no longer assigned to {interface_object.get_display_name()} and "
+                logger.info(f"{current_ip.name} is no longer assigned to {interface_object.get_display_name()} and "
                          f"therefore removed from this interface")
                 current_ip.remove_interface_association()
 
@@ -648,7 +648,7 @@ class SourceBase:
                     matching_untagged_vlan = None
 
             elif matching_untagged_vlan is not None:
-                log.debug2(f"Found matching prefix VLAN {matching_untagged_vlan.get_display_name()} for "
+                logger.trivial(f"Found matching prefix VLAN {matching_untagged_vlan.get_display_name()} for "
                            f"untagged interface VLAN.")
 
             if matching_untagged_vlan is not None:
@@ -662,7 +662,7 @@ class SourceBase:
 
             matching_tagged_vlan = matching_tagged_vlans.get(grab(tagged_vlan, "vid"))
             if matching_tagged_vlan is not None:
-                log.debug2(f"Found matching prefix VLAN {matching_tagged_vlan.get_display_name()} for "
+                logger.trivial(f"Found matching prefix VLAN {matching_tagged_vlan.get_display_name()} for "
                            f"tagged interface VLAN.")
             else:
                 matching_tagged_vlan = self.get_vlan_object_if_exists(tagged_vlan, device_object_site,
@@ -771,7 +771,7 @@ class SourceBase:
         if vlan_cluster is not None:
             log_text += f", cluster '{vlan_cluster.get_display_name()}'"
         log_text += f" and VLAN ID '{vlan_id}'"
-        log.debug(log_text)
+        logger.debug(log_text)
 
         vlan_group = None
         for vlan_filter, vlan_group_name in self.settings.vlan_group_relation_by_name or list():
@@ -798,7 +798,7 @@ class SourceBase:
                             break
 
         if vlan_group is not None:
-            log.debug2(f"Found matching VLAN group '{vlan_group.get_display_name()}'")
+            logger.trivial(f"Found matching VLAN group '{vlan_group.get_display_name()}'")
             """
             If a VLAN group has been found we also need to check if the vlan site and the scope of the VLAN group are
             matching. If the VLAN group has a different scope then site, we need to remove the site from the VLAN.
@@ -814,7 +814,7 @@ class SourceBase:
                 if vlan_current_site is not vlan_group.data.get("scope_id"):
                     del(vlan_data["site"])
         else:
-            log.debug2("No matching VLAN group found")
+            logger.trivial("No matching VLAN group found")
 
         return vlan_data
 
@@ -851,10 +851,10 @@ class SourceBase:
             raise ValueError("Value of 'vlan_data' needs to be a dict.")
 
         # check existing Devices for matches
-        log.debug2(f"Trying to find a {NBVLAN.name} based on the VLAN ID '{vlan_data.get('vid')}'")
+        logger.trivial(f"Trying to find a {NBVLAN.name} based on the VLAN ID '{vlan_data.get('vid')}'")
 
         if vlan_data.get("vid") is None:
-            log.debug("No VLAN ID set in vlan_data while trying to find matching VLAN.")
+            logger.debug("No VLAN ID set in vlan_data while trying to find matching VLAN.")
             return vlan_data
 
         if vlan_site is None:
@@ -892,7 +892,7 @@ class SourceBase:
 
         if isinstance(vlan_object_by_site, NetBoxObject):
             return_data = vlan_object_by_site
-            log.debug2(f"Found a {return_data.name} object which matches the site '{vlan_site.get_display_name()}': %s"
+            logger.trivial(f"Found a {return_data.name} object which matches the site '{vlan_site.get_display_name()}': %s"
                        % vlan_object_by_site.get_display_name(including_second_key=True))
 
         elif isinstance(vlan_object_by_group, NetBoxObject):
@@ -903,17 +903,17 @@ class SourceBase:
             if vlan_group_object_scope_object is not None:
                 scope_details = (f" ({vlan_group_object_scope_object.name} "
                                  f"{vlan_group_object_scope_object.get_display_name()})")
-            log.debug2(f"Found a {return_data.name} object which matches the {vlan_group_object.name} "
+            logger.trivial(f"Found a {return_data.name} object which matches the {vlan_group_object.name} "
                        f"'{vlan_group_object.get_display_name()}'{scope_details}: %s" %
                        vlan_object_by_group.get_display_name(including_second_key=True))
 
         elif isinstance(vlan_object_global, NetBoxObject):
             return_data = vlan_object_global
-            log.debug2(f"Found a global matching {return_data.name} object: %s" %
+            logger.trivial(f"Found a global matching {return_data.name} object: %s" %
                        vlan_object_global.get_display_name(including_second_key=True))
 
         else:
-            log.debug2("No matching existing VLAN found for this VLAN ID.")
+            logger.trivial("No matching existing VLAN found for this VLAN ID.")
 
         return return_data
 
@@ -949,11 +949,11 @@ class SourceBase:
         vlan_id = vlan_data.get("vid")
 
         if vlan_id == 4095:
-            log.debug(f"Skipping sync of VLAN '{vlan_name}' ID: '{vlan_id}' (VMware 'Virtual Guest Tagging') to NetBox")
+            logger.debug(f"Skipping sync of VLAN '{vlan_name}' ID: '{vlan_id}' (VMware 'Virtual Guest Tagging') to NetBox")
             return False
 
         if vlan_id >= 4096:
-            log.warning(f"Skipping sync of invalid VLAN '{vlan_name}' ID: '{vlan_id}'")
+            logger.warning(f"Skipping sync of invalid VLAN '{vlan_name}' ID: '{vlan_id}'")
             return False
 
         for excluded_vlan in self.settings.vlan_sync_exclude_by_name or list():

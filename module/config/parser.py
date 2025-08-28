@@ -13,13 +13,13 @@ import configparser
 from typing import Dict
 import yaml
 
-from module.common.logging import get_logger
+from loguru import logger
 from module.common.misc import grab, do_error_exit
 from module.config import *
 from module.config.files import ConfigFile, ConfigFileINI, ConfigFileYAML
 
 
-log = get_logger()
+
 
 
 class ConfigParser:
@@ -60,10 +60,10 @@ class ConfigParser:
     def log_end_exit_on_errors(self) -> None:
 
         for error in self.config_errors:
-            log.error(error)
+            logger.error(error)
 
         for warning in self.config_warnings:
-            log.warning(warning)
+            logger.warning(warning)
 
         if len(self.config_errors) > 0:
             do_error_exit("Unable to open/parse one or more config files")

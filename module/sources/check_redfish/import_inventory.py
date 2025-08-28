@@ -15,13 +15,13 @@ from packaging import version
 
 from module.sources.common.source_base import SourceBase
 from module.sources.check_redfish.config import CheckRedfishConfig
-from module.common.logging import get_logger
+from loguru import logger
 from module.common.misc import grab, get_string_or_none
 from module.common.support import normalize_mac_address
 from module.netbox.inventory import NetBoxInventory
 from module.netbox import *
 
-log = get_logger()
+
 
 
 class CheckRedfish(SourceBase):
@@ -79,7 +79,7 @@ class CheckRedfish(SourceBase):
         self.set_source_tag()
 
         if self.settings.enabled is False:
-            log.info(f"Source '{name}' is currently disabled. Skipping")
+            logger.info(f"Source '{name}' is currently disabled. Skipping")
             return
 
         self.init_successful = True
@@ -114,13 +114,13 @@ class CheckRedfish(SourceBase):
             try:
                 inventory_id = int(inventory_id)
             except (ValueError, TypeError):
-                log.warning(f"Value for meta.inventory_id '{inventory_id}' must be an integer. "
+                logger.warning(f"Value for meta.inventory_id '{inventory_id}' must be an integer. "
                             f"Cannot use inventory_id to match device in NetBox.")
 
             self.device_object = self.inventory.get_by_id(NBDevice, inventory_id)
 
             if self.device_object is not None:
-                log.debug2("Found a matching %s object '%s' based on inventory id '%d'" %
+                logger.trivial("Found a matching %s object '%s' based on inventory id '%d'" %
                            (self.device_object.name,
                             self.device_object.get_display_name(including_second_key=True),
                             inventory_id))
@@ -134,11 +134,11 @@ class CheckRedfish(SourceBase):
                     })
 
                 if self.device_object is None:
-                    log.error(f"Unable to find {NBDevice.name} with id '{inventory_id}' or "
+                    logger.error(f"Unable to find {NBDevice.name} with id '{inventory_id}' or "
                               f"serial '{device_serial}' in NetBox inventory from inventory file {filename}")
                     continue
                 else:
-                    log.debug2("Found a matching %s object '%s' based on serial '%s'" %
+                    logger.trivial("Found a matching %s object '%s' based on serial '%s'" %
                                (self.device_object.name,
                                 self.device_object.get_display_name(including_second_key=True),
                                 device_serial))
@@ -184,23 +184,23 @@ class CheckRedfish(SourceBase):
         """
 
         if not os.path.isfile(filename):
-            log.error(f"Inventory file {filename} seems to be not a regular file")
+            logger.error(f"Inventory file {filename} seems to be not a regular file")
             return False
 
         with open(filename) as json_file:
             try:
                 file_content = json.load(json_file)
             except json.decoder.JSONDecodeError as e:
-                log.error(f"Inventory file {filename} contains invalid json: {e}")
+                logger.error(f"Inventory file {filename} contains invalid json: {e}")
                 return False
 
-        log.debug(f"Parsing inventory file {filename}")
+        logger.debug(f"Parsing inventory file {filename}")
 
         # get inventory_layout_version
         inventory_layout_version = grab(file_content, "meta.inventory_layout_version", fallback=0)
 
         if version.parse(inventory_layout_version) < version.parse(self.minimum_check_redfish_version):
-            log.error(f"Inventory layout version '{inventory_layout_version}' of file {filename} not supported. "
+            logger.error(f"Inventory layout version '{inventory_layout_version}' of file {filename} not supported. "
                       f"Minimum layout version {self.minimum_check_redfish_version} required.")
 
             return False
@@ -214,7 +214,7 @@ class CheckRedfish(SourceBase):
         system = grab(self.inventory_file_content, "inventory.system.0")
 
         if system is None:
-            log.error(f"No system data found for '{self.device_object.get_display_name()}' in inventory file.")
+            logger.error(f"No system data found for '{self.device_object.get_display_name()}' in inventory file.")
             return
 
         serial = get_string_or_none(grab(system, "serial"))
@@ -255,7 +255,7 @@ class CheckRedfish(SourceBase):
 
                 device_data["custom_fields"]["service_tag"] = chassi.get("sku")
             else:
-                log.warning(f"No chassi or sku data found for "
+                logger.warning(f"No chassi or sku data found for "
                             f"'{self.device_object.get_display_name()}' in inventory file.")
 
         self.device_object.update(data=device_data, source=self)
@@ -935,7 +935,7 @@ class CheckRedfish(SourceBase):
         inventory_type = grab(items, "0.inventory_type")
 
         if inventory_type is None:
-            log.error(f"Unable to find inventory type for inventory item {items[0]}")
+            logger.error(f"Unable to find inventory type for inventory item {items[0]}")
             return
 
         # get current inventory items for this device and type
@@ -960,10 +960,10 @@ class CheckRedfish(SourceBase):
 
             current_item = current_inventory_items.get(item.get("full_name"))
             if current_item is not None:
-                # log.debug2(f"Found 1:1 name match for inventory item '{item.get('full_name')}'")
+                # logger.trivial(f"Found 1:1 name match for inventory item '{item.get('full_name')}'")
                 matched_inventory[current_item] = item
             else:
-                # log.debug2(f"No current NetBox inventory item found for '{item.get('full_name')}'")
+                # logger.trivial(f"No current NetBox inventory item found for '{item.get('full_name')}'")
                 unmatched_inventory_items.append(item)
 
         # sort unmatched items by full_name

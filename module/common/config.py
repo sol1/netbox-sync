@@ -11,7 +11,7 @@
 from module.config.option import ConfigOption
 from module.config.base import ConfigBase
 from module.config import common_config_section_name
-from module.common.logging import log_file_max_rotation, log_file_max_size_in_mb
+from module.common.logging import LOG_FILE_MAX_ROTATION, LOG_FILE_MAX_SIZE_IN_MB
 
 
 class CommonConfig(ConfigBase):
@@ -49,8 +49,8 @@ class CommonConfig(ConfigBase):
             ConfigOption("log_file",
                          str,
                          description=f"""Destination of the log file if "log_to_file" is enabled.
-                         Log file will be rotated maximum {log_file_max_rotation} times once
-                         the log file reaches size of {log_file_max_size_in_mb} MB
+                         Log file will be rotated maximum {LOG_FILE_MAX_ROTATION} times once
+                         the log file reaches size of {LOG_FILE_MAX_SIZE_IN_MB} MB
                          """,
                          default_value="log/netbox_sync.log")
         ]

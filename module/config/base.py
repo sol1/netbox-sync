@@ -8,12 +8,12 @@
 #  repository or visit: <https://opensource.org/licenses/MIT>.
 
 from module.common.misc import grab
-from module.common.logging import get_logger
+from loguru import logger
 from module.config.parser import ConfigParser
 from module.config.option import ConfigOption
 from module.config.group import ConfigOptionGroup
 
-log = get_logger()
+
 
 
 class ConfigOptions:
@@ -117,7 +117,7 @@ class ConfigBase:
                            "and will be removed soon."
                 if len(config_object.deprecation_message) > 0:
                     log_text += " " + config_object.deprecation_message
-                _log(log.warning, log_text)
+                _log(logger.warning, log_text)
 
             # check for removed settings
             if config_value is not None and config_object.removed is True:
@@ -128,7 +128,7 @@ class ConfigBase:
                            f"but is still defined in config section '{config_option_location}'."
                 if len(config_object.deprecation_message) > 0:
                     log_text += " " + config_object.deprecation_message
-                _log(log.warning, log_text)
+                _log(logger.warning, log_text)
                 continue
 
             if config_object.removed is True:
@@ -137,11 +137,11 @@ class ConfigBase:
             # set value
             config_object.set_value(config_value)
 
-            _log(log.debug, f"Config: {config_option_location}.{config_object.key} = {config_object.sensitive_value}")
+            _log(logger.debug, f"Config: {config_option_location}.{config_object.key} = {config_object.sensitive_value}")
 
             if config_object.mandatory is True and config_object.value is None:
                 self._parsing_failed = True
-                _log(log.error, f"Config option '{config_object.key}' in "
+                _log(logger.error, f"Config option '{config_object.key}' in "
                                 f"'{config_option_location}' can't be empty/undefined")
 
             if config_object.parsing_failed is True:
@@ -158,13 +158,13 @@ class ConfigBase:
 
         for option_key in config_options.keys():
             if option_key not in [x.key for x in input_options]:
-                _log(log.warning, f"Found unknown config option '{option_key}' for '{config_option_location}' config")
+                _log(logger.warning, f"Found unknown config option '{option_key}' for '{config_option_location}' config")
 
         # validate parsed config
         self.validate_options()
 
         if self._parsing_failed is True:
-            log.error("Config validation failed. Exit!")
+            logger.error("Config validation failed. Exit!")
             exit(1)
 
         return ConfigOptions(**{x.key: x.value for x in self.options})

@@ -28,7 +28,7 @@ from pyVmomi.VmomiSupport import VmomiJSONEncoder
 
 from module.sources.common.source_base import SourceBase
 from module.sources.vmware.config import VMWareConfig
-from module.common.logging import get_logger, DEBUG3
+from loguru import logger
 from module.common.misc import grab, dump, get_string_or_none, plural, quoted_split
 from module.common.support import normalize_mac_address
 from module.netbox.inventory import NetBoxInventory
@@ -43,7 +43,7 @@ try:
 except ImportError:
     vsphere_automation_sdk_available = False
 
-log = get_logger()
+
 
 
 # noinspection PyTypeChecker
@@ -105,14 +105,14 @@ class VMWareHandler(SourceBase):
         self.site_name = f"vCenter: {name}"
 
         if self.settings.enabled is False:
-            log.info(f"Source '{name}' is currently disabled. Skipping")
+            logger.info(f"Source '{name}' is currently disabled. Skipping")
             return
 
         self._sdk_instance = None
         self.create_sdk_session()
 
         if self.session is None:
-            log.info(f"Source '{name}' is currently unavailable. Skipping")
+            logger.info(f"Source '{name}' is currently unavailable. Skipping")
             return
 
         self.create_api_session()
@@ -147,7 +147,7 @@ class VMWareHandler(SourceBase):
         if self.session is not None:
             return True
 
-        log.debug(f"Starting vCenter SDK connection to '{self.settings.host_fqdn}'")
+        logger.debug(f"Starting vCenter SDK connection to '{self.settings.host_fqdn}'")
 
         ssl_context = ssl.create_default_context()
         if self.settings.validate_tls_certs is False:
@@ -190,16 +190,16 @@ class VMWareHandler(SourceBase):
             self.session = self._sdk_instance.RetrieveContent()
 
         except vim.fault.InvalidLogin as e:
-            log.error(f"{def_exception_text} {e.msg}")
+            logger.error(f"{def_exception_text} {e.msg}")
             return False
         except vim.fault.NoPermission as e:
-            log.error(f"{def_exception_text} User {self.settings.username} does not have required permission. {e.msg}")
+            logger.error(f"{def_exception_text} User {self.settings.username} does not have required permission. {e.msg}")
             return False
         except Exception as e:
-            log.error(f"{def_exception_text} Reason: {e}")
+            logger.error(f"{def_exception_text} Reason: {e}")
             return False
 
-        log.info(f"Successfully connected to vCenter SDK '{self.settings.host_fqdn}'")
+        logger.info(f"Successfully connected to vCenter SDK '{self.settings.host_fqdn}'")
 
         return True
 
@@ -226,10 +226,10 @@ class VMWareHandler(SourceBase):
             return False
 
         if vsphere_automation_sdk_available is False:
-            log.warning(f"Unable to import Python 'vsphere-automation-sdk'. Tag syncing will be disabled.")
+            logger.warning(f"Unable to import Python 'vsphere-automation-sdk'. Tag syncing will be disabled.")
             return False
 
-        log.debug(f"Starting vCenter API connection to '{self.settings.host_fqdn}'")
+        logger.debug(f"Starting vCenter API connection to '{self.settings.host_fqdn}'")
 
         # create a requests session to enable/disable TLS verification
         session = requests.session()
@@ -254,12 +254,12 @@ class VMWareHandler(SourceBase):
                 session=session)
 
         except Exception as e:
-            log.warning(f"Unable to connect to vCenter API instance "
+            logger.warning(f"Unable to connect to vCenter API instance "
                         f"'{self.settings.host_fqdn}' on port {self.settings.port}: {e}")
-            log.warning("Tag syncing will be disabled.")
+            logger.warning("Tag syncing will be disabled.")
             return False
 
-        log.info(f"Successfully connected to vCenter API '{self.settings.host_fqdn}'")
+        logger.info(f"Successfully connected to vCenter API '{self.settings.host_fqdn}'")
 
         return True
 
@@ -270,14 +270,14 @@ class VMWareHandler(SourceBase):
             try:
                 connect.Disconnect(self._sdk_instance)
             except Exception as e:
-                log.error(f"unable to close vCenter SDK connection: {e}")
+                logger.error(f"unable to close vCenter SDK connection: {e}")
 
         # closing SDK session
         if self.tag_session is not None:
             try:
                 del self.tag_session
             except Exception as e:
-                log.error(f"unable to close vCenter API instance connection: {e}")
+                logger.error(f"unable to close vCenter API instance connection: {e}")
 
     def apply(self):
         """
@@ -287,7 +287,7 @@ class VMWareHandler(SourceBase):
         Every update of new/existing objects fot this source has to happen here.
         """
 
-        log.info(f"Query data from vCenter: '{self.settings.host_fqdn}'")
+        logger.info(f"Query data from vCenter: '{self.settings.host_fqdn}'")
 
         """
         Mapping of object type keywords to view types and handlers
@@ -344,7 +344,7 @@ class VMWareHandler(SourceBase):
 
         # skip virtual machines which are reported offline
         if self.settings.skip_offline_vms is True:
-            log.info("Skipping offline VMs")
+            logger.info("Skipping offline VMs")
             del object_mapping["offline virtual machine"]
 
         for view_name, view_details in object_mapping.items():
@@ -353,14 +353,14 @@ class VMWareHandler(SourceBase):
             try:
                 self.session.sessionManager.currentSession.key
             except (vim.fault.NotAuthenticated, AttributeError, http.client.RemoteDisconnected):
-                log.info("No existing vCenter session found.")
+                logger.info("No existing vCenter session found.")
                 self.session = None
                 self.tag_session = None
                 self.create_sdk_session()
                 self.create_api_session()
 
             if self.session is None:
-                log.error("Recreating session failed")
+                logger.error("Recreating session failed")
                 break
 
             view_data = {
@@ -372,28 +372,27 @@ class VMWareHandler(SourceBase):
             try:
                 container_view = self.session.viewManager.CreateContainerView(**view_data)
             except Exception as e:
-                log.error(f"Problem creating vCenter view for '{view_name}s': {e}")
+                logger.error(f"Problem creating vCenter view for '{view_name}s': {e}")
                 continue
 
             view_objects = grab(container_view, "view")
 
             if view_objects is None:
-                log.error(f"Creating vCenter view for '{view_name}s' failed!")
+                logger.error(f"Creating vCenter view for '{view_name}s' failed!")
                 continue
 
             if view_name != "offline virtual machine":
-                log.debug("vCenter returned '%d' %s%s" % (len(view_objects), view_name, plural(len(view_objects))))
+                logger.debug("vCenter returned '%d' %s%s" % (len(view_objects), view_name, plural(len(view_objects))))
             else:
                 self.parsing_vms_the_first_time = False
-                log.debug("Iterating over all virtual machines a second time ")
+                logger.debug("Iterating over all virtual machines a second time ")
 
             for obj in view_objects:
 
-                if log.level == DEBUG3:
-                    try:
-                        dump(obj)
-                    except Exception as e:
-                        log.error(e)
+                try:
+                    logger.trace(obj)
+                except Exception as e:
+                    logger.error(e)
 
                 # noinspection PyArgumentList
                 view_details.get("view_handler")(obj)
@@ -401,7 +400,7 @@ class VMWareHandler(SourceBase):
             container_view.Destroy()
 
         self.parsing_objects_to_reevaluate = True
-        log.info("Parsing objects which were marked to be reevaluated")
+        logger.info("Parsing objects which were marked to be reevaluated")
 
         for obj in self.objects_to_reevaluate:
 
@@ -410,7 +409,7 @@ class VMWareHandler(SourceBase):
             elif isinstance(obj, vim.VirtualMachine):
                 self.add_virtual_machine(obj)
             else:
-                log.error(f"Unable to handle reevaluation of {obj} (type: {type(obj)})")
+                logger.error(f"Unable to handle reevaluation of {obj} (type: {type(obj)})")
 
         self.update_basic_data()
 
@@ -435,12 +434,12 @@ class VMWareHandler(SourceBase):
 
         # first includes
         if include_filter is not None and not include_filter.match(name):
-            log.debug(f"Object '{name}' did not match include filter '{include_filter.pattern}'. Skipping")
+            logger.debug(f"Object '{name}' did not match include filter '{include_filter.pattern}'. Skipping")
             return False
 
         # second excludes
         if exclude_filter is not None and exclude_filter.match(name):
-            log.debug(f"Object '{name}' matched exclude filter '{exclude_filter.pattern}'. Skipping")
+            logger.debug(f"Object '{name}' matched exclude filter '{exclude_filter.pattern}'. Skipping")
             return False
 
         return True
@@ -467,7 +466,7 @@ class VMWareHandler(SourceBase):
         if object_type not in [NBCluster, NBDevice]:
             raise ValueError(f"Object must be a '{NBCluster.name}' or '{NBDevice.name}'.")
 
-        log.debug2(f"Trying to find site name for {object_type.name} '{object_name}'")
+        logger.trivial(f"Trying to find site name for {object_type.name} '{object_name}'")
 
         # check if site was provided in config
         relation_name = "host_site_relation" if object_type == NBDevice else "cluster_site_relation"
@@ -477,17 +476,17 @@ class VMWareHandler(SourceBase):
         if object_type == NBDevice and site_name is None:
             site_name = self.get_site_name(NBCluster, cluster_name)
             if site_name is not None:
-                log.debug2(f"Found a matching cluster site for {object_name}, using site '{site_name}'")
+                logger.trivial(f"Found a matching cluster site for {object_name}, using site '{site_name}'")
 
         # set default site name
         if site_name is None:
             site_name = self.site_name
-            log.debug(f"No site relation for '{object_name}' found, using default site '{site_name}'")
+            logger.debug(f"No site relation for '{object_name}' found, using default site '{site_name}'")
 
         # set the site for cluster to None if None-keyword ("<NONE>") is set via cluster_site_relation
         if object_type == NBCluster and site_name == "<NONE>":
             site_name = None
-            log.debug2(f"Site relation for '{object_name}' set to None")
+            logger.trivial(f"Site relation for '{object_name}' set to None")
 
         return site_name
 
@@ -542,7 +541,7 @@ class VMWareHandler(SourceBase):
                 if not isinstance(matching_object, (NBDevice, NBVM)):
                     continue
 
-                log.debug2("Found matching MAC '%s' on %s '%s'" %
+                logger.trivial("Found matching MAC '%s' on %s '%s'" %
                            (grab(interface, "data.mac_address"), object_type.name,
                             matching_object.get_display_name(including_second_key=True)))
 
@@ -556,14 +555,14 @@ class VMWareHandler(SourceBase):
 
         if num_devices_witch_matching_macs == 1 and isinstance(matching_object, (NBDevice, NBVM)):
 
-            log.debug2("Found one %s '%s' based on MAC addresses and using it" %
+            logger.trivial("Found one %s '%s' based on MAC addresses and using it" %
                        (object_type.name, matching_object.get_display_name(including_second_key=True)))
 
             object_to_return = list(objects_with_matching_macs.keys())[0]
 
         elif num_devices_witch_matching_macs > 1:
 
-            log.debug2(f"Found {num_devices_witch_matching_macs} {object_type.name}s with matching MAC addresses")
+            logger.trivial(f"Found {num_devices_witch_matching_macs} {object_type.name}s with matching MAC addresses")
 
             # now select the two top matches
             first_choice, second_choice = \
@@ -572,19 +571,19 @@ class VMWareHandler(SourceBase):
             first_choice_matches = objects_with_matching_macs.get(first_choice)
             second_choice_matches = objects_with_matching_macs.get(second_choice)
 
-            log.debug2(f"The top candidate {first_choice.get_display_name()} with {first_choice_matches} matches")
-            log.debug2(f"The second candidate {second_choice.get_display_name()} with {second_choice_matches} matches")
+            logger.trivial(f"The top candidate {first_choice.get_display_name()} with {first_choice_matches} matches")
+            logger.trivial(f"The second candidate {second_choice.get_display_name()} with {second_choice_matches} matches")
 
             # get ratio between
             matching_ration = first_choice_matches / second_choice_matches
 
             # only pick the first one if the ration exceeds 2
             if matching_ration >= 2.0:
-                log.debug2(f"The matching ratio of {matching_ration} is high enough "
+                logger.trivial(f"The matching ratio of {matching_ration} is high enough "
                            f"to select {first_choice.get_display_name()} as desired {object_type.name}")
                 object_to_return = first_choice
             else:
-                log.debug2("Both candidates have a similar amount of "
+                logger.trivial("Both candidates have a similar amount of "
                            "matching interface MAC addresses. Using NONE of them!")
 
         return object_to_return
@@ -640,12 +639,12 @@ class VMWareHandler(SourceBase):
         for device in self.inventory.get_all_items(object_type):
 
             if _matches_device_primary_ip(grab(device, "data.primary_ip4"), primary_ip4) is True:
-                log.debug2(f"Found existing host '{device.get_display_name()}' "
+                logger.trivial(f"Found existing host '{device.get_display_name()}' "
                            f"based on the primary IPv4 '{primary_ip4}'")
                 return device
 
             if _matches_device_primary_ip(grab(device, "data.primary_ip6"), primary_ip6) is True:
-                log.debug2(f"Found existing host '{device.get_display_name()}' "
+                logger.trivial(f"Found existing host '{device.get_display_name()}' "
                            f"based on the primary IPv6 '{primary_ip6}'")
                 return device
 
@@ -674,7 +673,7 @@ class VMWareHandler(SourceBase):
                 object_tag_ids = self.tag_session.tagging.TagAssociation.list_attached_tags(
                     DynamicID(type=grab(obj, "_wsdlName"), id=grab(obj, "_moId")))
             except Exception as e:
-                log.error(f"Unable to retrieve vCenter tags for '{obj.name}': {e}")
+                logger.error(f"Unable to retrieve vCenter tags for '{obj.name}': {e}")
                 return
 
             for tag_id in object_tag_ids:
@@ -684,7 +683,7 @@ class VMWareHandler(SourceBase):
                     tag_name = self.tag_session.tagging.Tag.get(tag_id).name
                     tag_description = self.tag_session.tagging.Tag.get(tag_id).description
                 except Exception as e:
-                    log.error(f"Unable to retrieve vCenter tag '{tag_id}' for '{obj.name}': {e}")
+                    logger.error(f"Unable to retrieve vCenter tag '{tag_id}' for '{obj.name}': {e}")
                     continue
 
                 if tag_name is not None:
@@ -733,7 +732,7 @@ class VMWareHandler(SourceBase):
         if tag_source is None or self.tag_session is None:
             return tag_list
 
-        log.debug2(f"Collecting tags for {obj.name}")
+        logger.trivial(f"Collecting tags for {obj.name}")
 
         if "object" in tag_source:
             tag_list.extend(self.get_vmware_object_tags(obj))
@@ -843,7 +842,7 @@ class VMWareHandler(SourceBase):
 
             if self.settings.custom_attribute_exclude is not None and \
                     label in self.settings.custom_attribute_exclude:
-                log.debug(f"Custom attribute '{label}' excluded from sync. Skipping")
+                logger.debug(f"Custom attribute '{label}' excluded from sync. Skipping")
                 continue
 
             custom_field = self.add_update_custom_field({
@@ -861,7 +860,7 @@ class VMWareHandler(SourceBase):
             attribute_data = grab(obj, custom_object_attribute, fallback="NOT FOUND")
 
             if attribute_data == "NOT FOUND":
-                log.warning(f"This object has no attribute '{custom_object_attribute}' or attribute is undefined.")
+                logger.warning(f"This object has no attribute '{custom_object_attribute}' or attribute is undefined.")
                 continue
 
             if isinstance(attribute_data, datetime.datetime):
@@ -919,7 +918,7 @@ class VMWareHandler(SourceBase):
             match_found = False
             if object_regex.match(name):
                 resolved_name = single_relation.get("assigned_name")
-                log.debug2(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) for {name}")
+                logger.trivial(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) for {name}")
                 resolved_list.append(resolved_name)
                 match_found = True
 
@@ -930,7 +929,7 @@ class VMWareHandler(SourceBase):
                 if object_regex.match(stripped_name):
 
                     resolved_name = single_relation.get("assigned_name")
-                    log.debug2(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) "
+                    logger.trivial(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) "
                                f"for {stripped_name}")
                     resolved_list.append(resolved_name)
 
@@ -942,7 +941,7 @@ class VMWareHandler(SourceBase):
             if len(resolved_list) >= 1:
                 resolved_name = resolved_list[0]
                 if len(resolved_list) > 1:
-                    log.debug(f"Found {len(resolved_list)} matches for {name} in {relation}."
+                    logger.debug(f"Found {len(resolved_list)} matches for {name} in {relation}."
                               f" Using first on: {resolved_name}")
 
             return resolved_name
@@ -1017,31 +1016,28 @@ class VMWareHandler(SourceBase):
         if object_type not in [NBDevice, NBVM]:
             raise ValueError(f"Object must be a '{NBVM.name}' or '{NBDevice.name}'.")
 
-        if log.level == DEBUG3:
-
-            log.debug3("function: add_device_vm_to_inventory")
-            log.debug3(f"Object type {object_type}")
-            pprint.pprint(object_data)
-            pprint.pprint(pnic_data)
-            pprint.pprint(vnic_data)
-            pprint.pprint(nic_ips)
-            pprint.pprint(p_ipv4)
-            pprint.pprint(p_ipv6)
-            pprint.pprint(disk_data)
+        logger.trace(f"function: add_device_vm_to_inventory: Object type {object_type}")
+        logger.trace(f"object_data: {object_data}")
+        logger.trace(f"pnic_data: {pnic_data}")
+        logger.trace(f"vnic_data: {vnic_data}")
+        logger.trace(f"nic_ips: {nic_ips}")
+        logger.trace(f"p_ipv4: {p_ipv4}")
+        logger.trace(f"p_ipv6: {p_ipv6}")
+        logger.trace(f"disk_data: {disk_data}")
 
         # check existing Devices for matches
-        log.debug2(f"Trying to find a {object_type.name} based on the collected name, cluster, IP and MAC addresses")
+        logger.trivial(f"Trying to find a {object_type.name} based on the collected name, cluster, IP and MAC addresses")
 
         device_vm_object = self.inventory.get_by_data(object_type, data=object_data)
 
         if device_vm_object is not None:
-            log.debug2("Found a exact matching %s object: %s" %
+            logger.trivial("Found a exact matching %s object: %s" %
                        (object_type.name, device_vm_object.get_display_name(including_second_key=True)))
 
         # keep searching if no exact match was found
         else:
 
-            log.debug2(f"No exact match found. Trying to find {object_type.name} based on MAC addresses")
+            logger.trivial(f"No exact match found. Trying to find {object_type.name} based on MAC addresses")
 
             # on VMs vnic data is used, on physical devices pnic data is used
             mac_source_data = vnic_data if object_type == NBVM else pnic_data
@@ -1055,35 +1051,35 @@ class VMWareHandler(SourceBase):
 
             if device_vm_object is None and object_data.get("serial") is not None and \
                     self.settings.match_host_by_serial is True:
-                log.debug2(f"No match found. Trying to find {object_type.name} based on serial number")
+                logger.trivial(f"No match found. Trying to find {object_type.name} based on serial number")
 
                 device_vm_object = self.inventory.get_by_data(object_type, data={"serial": object_data.get("serial")})
 
             if device_vm_object is None and object_data.get("asset_tag") is not None:
-                log.debug2(f"No match found. Trying to find {object_type.name} based on asset tag")
+                logger.trivial(f"No match found. Trying to find {object_type.name} based on asset tag")
 
                 device_vm_object = self.inventory.get_by_data(object_type,
                                                               data={"asset_tag": object_data.get("asset_tag")})
 
         # look for VMs with same serial
         if object_type == NBVM and device_vm_object is None and object_data.get("serial") is not None:
-            log.debug2(f"No match found. Trying to find {object_type.name} based on serial number")
+            logger.trivial(f"No match found. Trying to find {object_type.name} based on serial number")
             device_vm_object = self.inventory.get_by_data(object_type, data={"serial": object_data.get("serial")})
 
         if device_vm_object is not None:
-            log.debug2("Found a matching %s object: %s" %
+            logger.trivial("Found a matching %s object: %s" %
                        (object_type.name, device_vm_object.get_display_name(including_second_key=True)))
 
         # keep looking for devices with the same primary IP
         else:
 
-            log.debug2(f"No match found. Trying to find {object_type.name} based on primary IP addresses")
+            logger.trivial(f"No match found. Trying to find {object_type.name} based on primary IP addresses")
 
             device_vm_object = self.get_object_based_on_primary_ip(object_type, p_ipv4, p_ipv6)
 
         if device_vm_object is None:
             object_name = object_data.get(object_type.primary_key)
-            log.debug(f"No existing {object_type.name} object for {object_name}. Creating a new {object_type.name}.")
+            logger.debug(f"No existing {object_type.name} object for {object_name}. Creating a new {object_type.name}.")
             device_vm_object = self.inventory.add_object(object_type, data=object_data, source=self)
         else:
 
@@ -1142,7 +1138,7 @@ class VMWareHandler(SourceBase):
                     self.inventory.add_object(NBVirtualDisk, source=self,
                                               data={**discovered, **{"virtual_machine": device_vm_object}}, )
                 elif discovered == "X":
-                    log.info(f"{existing.name} '{existing.get_display_name(including_second_key=True)}' has been deleted")
+                    logger.info(f"{existing.name} '{existing.get_display_name(including_second_key=True)}' has been deleted")
                     existing.deleted = True
                 else:
                     existing.update(data=discovered, source=self)
@@ -1157,7 +1153,7 @@ class VMWareHandler(SourceBase):
         nic_object_dict = self.map_object_interfaces_to_current_interfaces(device_vm_object, nic_data)
 
         if object_data.get("status", "") == "active" and (nic_ips is None or len(nic_ips.keys()) == 0):
-            log.debug(f"No IP addresses for '{object_name}' found!")
+            logger.debug(f"No IP addresses for '{object_name}' found!")
 
         primary_ipv4_object = None
         primary_ipv6_object = None
@@ -1166,13 +1162,13 @@ class VMWareHandler(SourceBase):
             try:
                 primary_ipv4_object = ip_interface(p_ipv4)
             except ValueError:
-                log.error(f"Primary IPv4 ({p_ipv4}) does not appear to be a valid IP address (needs included suffix).")
+                logger.error(f"Primary IPv4 ({p_ipv4}) does not appear to be a valid IP address (needs included suffix).")
 
         if p_ipv6 is not None:
             try:
                 primary_ipv6_object = ip_interface(p_ipv6)
             except ValueError:
-                log.error(f"Primary IPv6 ({p_ipv6}) does not appear to be a valid IP address (needs included suffix).")
+                logger.error(f"Primary IPv6 ({p_ipv6}) does not appear to be a valid IP address (needs included suffix).")
 
         for int_name, int_data in nic_data.items():
 
@@ -1231,7 +1227,7 @@ class VMWareHandler(SourceBase):
 
                 if set_this_primary_ip is True:
 
-                    log.debug(f"Setting IP '{grab(ip_object, 'data.address')}' as primary IPv{ip_version} for "
+                    logger.debug(f"Setting IP '{grab(ip_object, 'data.address')}' as primary IPv{ip_version} for "
                               f"'{device_vm_object.get_display_name()}'")
                     device_vm_object.update(data={f"primary_ip{ip_version}": ip_object})
 
@@ -1320,7 +1316,7 @@ class VMWareHandler(SourceBase):
         if name is None:
             return
 
-        log.debug(f"Parsing vCenter datacenter: {name}")
+        logger.debug(f"Parsing vCenter datacenter: {name}")
 
         object_data = {"name": name}
 
@@ -1368,7 +1364,7 @@ class VMWareHandler(SourceBase):
         group_name = grab(group, "data.name")
         full_cluster_name = f"{group_name}/{name}"
 
-        log.debug(f"Parsing vCenter cluster: {full_cluster_name}")
+        logger.debug(f"Parsing vCenter cluster: {full_cluster_name}")
 
         # check for full name and then for cluster name only
         if self.passes_filter(full_cluster_name,
@@ -1403,7 +1399,7 @@ class VMWareHandler(SourceBase):
             data["tags"] = cluster_tags
 
         # try to find cluster including cluster group
-        log.debug2("Trying to find a matching existing cluster")
+        logger.trivial("Trying to find a matching existing cluster")
         cluster_object = None
         fallback_cluster_object = None
         for cluster_candidate in self.inventory.get_all_items(NBCluster):
@@ -1413,20 +1409,20 @@ class VMWareHandler(SourceBase):
             # try to find a cluster with matching site
             if cluster_candidate.get_site_name() == site_name:
                 cluster_object = cluster_candidate
-                log.debug2("Found an existing cluster where 'name' and 'site' are matching")
+                logger.trivial("Found an existing cluster where 'name' and 'site' are matching")
                 break
 
             if grab(cluster_candidate, "data.group") is not None and \
                     grab(cluster_candidate, "data.group.data.name") == group_name:
                 cluster_object = cluster_candidate
-                log.debug2("Found an existing cluster where 'name' and 'cluster group' are matching")
+                logger.trivial("Found an existing cluster where 'name' and 'cluster group' are matching")
                 break
 
             if grab(cluster_candidate, "data.tenant") is not None and \
                     tenant_name is not None and \
                     grab(cluster_candidate, "data.tenant.data.name") == tenant_name:
                 cluster_object = cluster_candidate
-                log.debug2("Found an existing cluster where 'name' and 'tenant' are matching")
+                logger.trivial("Found an existing cluster where 'name' and 'tenant' are matching")
                 break
 
             # if only the name matches and there are multiple cluster with the same name we choose the first
@@ -1436,7 +1432,7 @@ class VMWareHandler(SourceBase):
                 fallback_cluster_object = cluster_candidate
 
         if cluster_object is None and fallback_cluster_object is not None:
-            log.debug2(f"Found an existing cluster where 'name' "
+            logger.trivial(f"Found an existing cluster where 'name' "
                        f"matches (NetBox id: {fallback_cluster_object.get_nb_reference()})")
             cluster_object = fallback_cluster_object
 
@@ -1465,7 +1461,7 @@ class VMWareHandler(SourceBase):
         if uuid is None or name is None:
             return
 
-        log.debug(f"Parsing vCenter virtual switch: {name}")
+        logger.debug(f"Parsing vCenter virtual switch: {name}")
 
         # add ports
         self.network_data["dpgroup_ports"][uuid] = dict()
@@ -1473,7 +1469,7 @@ class VMWareHandler(SourceBase):
         criteria = vim.dvs.PortCriteria()
         ports = obj.FetchDVPorts(criteria)
 
-        log.debug2(f"Found {len(ports)} vCenter virtual switch ports")
+        logger.trivial(f"Found {len(ports)} vCenter virtual switch ports")
 
         for port in ports:
             self.network_data["dpgroup_ports"][uuid][port.key] = port
@@ -1497,7 +1493,7 @@ class VMWareHandler(SourceBase):
         if key is None or name is None:
             return
 
-        log.debug(f"Parsing vCenter port group: {name}")
+        logger.debug(f"Parsing vCenter port group: {name}")
 
         vlan_info = grab(obj, "config.defaultPortConfig.vlan")
 
@@ -1556,7 +1552,7 @@ class VMWareHandler(SourceBase):
             name = name.split(".")[0]
 
         # parse data
-        log.debug(f"Parsing vCenter host: {name}")
+        logger.debug(f"Parsing vCenter host: {name}")
 
         #
         # Filtering
@@ -1569,21 +1565,19 @@ class VMWareHandler(SourceBase):
             cluster_object = self.get_parent_object_by_class(obj, vim.ComputeResource)
 
         if cluster_object is None:
-            log.error(f"Requesting cluster for host '{name}' failed. Skipping.")
+            logger.error(f"Requesting cluster for host '{name}' failed. Skipping.")
             return
 
-        if log.level == DEBUG3:
-            try:
-                log.info("Cluster data")
-                dump(cluster_object)
-            except Exception as e:
-                log.error(e)
+        try:
+            logger.trace(f"Cluster data\n{cluster_object}")
+        except Exception as e:
+            logger.error(e)
 
         # get cluster object
         nb_cluster_object = self.get_object_from_cache(cluster_object)
 
         if nb_cluster_object is None:
-            log.debug(f"Host '{name}' is not part of a permitted cluster. Skipping")
+            logger.debug(f"Host '{name}' is not part of a permitted cluster. Skipping")
             return
 
         cluster_name = get_string_or_none(grab(nb_cluster_object, "data.name"))
@@ -1597,8 +1591,9 @@ class VMWareHandler(SourceBase):
         site_name = self.get_site_name(NBDevice, name, f"{group_name}/{cluster_name}")
 
         if name in self.processed_host_names.get(site_name, list()) and obj not in self.objects_to_reevaluate:
-            log.warning(f"Host '{name}' for site '{site_name}' already parsed. "
-                        "Make sure to use unique host names. Skipping")
+            logger.warning(
+                f"Host '{name}' for site '{site_name}' already parsed. Make sure to use unique host names. Skipping"
+            )
             return
 
         # add host to processed list
@@ -1650,7 +1645,7 @@ class VMWareHandler(SourceBase):
 
         for serial_num_key in ["SerialNumberTag", "ServiceTag", "EnclosureSerialNumberTag"]:
             if serial_num_key in identifier_dict.keys() and self.settings.collect_hardware_serial is True:
-                log.debug2(f"Found {serial_num_key}: {get_string_or_none(identifier_dict.get(serial_num_key))}")
+                logger.trivial(f"Found {serial_num_key}: {get_string_or_none(identifier_dict.get(serial_num_key))}")
                 if serial is None:
                     serial = get_string_or_none(identifier_dict.get(serial_num_key))
 
@@ -1717,7 +1712,7 @@ class VMWareHandler(SourceBase):
 
             if vswitch_name is not None:
 
-                log.debug2(f"Found host vSwitch {vswitch_name}")
+                logger.trivial(f"Found host vSwitch {vswitch_name}")
 
                 self.network_data["vswitch"][name][vswitch_name] = {
                     "mtu": grab(vswitch, "mtu"),
@@ -1735,7 +1730,7 @@ class VMWareHandler(SourceBase):
 
             if pswitch_uuid is not None:
 
-                log.debug2(f"Found host proxySwitch {pswitch_name}")
+                logger.trivial(f"Found host proxySwitch {pswitch_name}")
 
                 self.network_data["pswitch"][name][pswitch_uuid] = {
                     "name": pswitch_name,
@@ -1751,7 +1746,7 @@ class VMWareHandler(SourceBase):
 
             if pgroup_name is not None:
 
-                log.debug2(f"Found host portGroup {pgroup_name}")
+                logger.trivial(f"Found host portGroup {pgroup_name}")
 
                 nic_order = grab(pgroup, "computedPolicy.nicTeaming.nicOrder")
                 pgroup_nics = list()
@@ -1781,7 +1776,7 @@ class VMWareHandler(SourceBase):
             pnic_name = grab(pnic, "device")
             pnic_key = grab(pnic, "key")
 
-            log.debug2("Parsing {}: {}".format(grab(pnic, "_wsdlName"), pnic_name))
+            logger.trivial("Parsing {}: {}".format(grab(pnic, "_wsdlName"), pnic_name))
 
             pnic_link_speed = grab(pnic, "linkSpeed.speedMb")
             if pnic_link_speed is None:
@@ -1849,7 +1844,7 @@ class VMWareHandler(SourceBase):
 
             if self.settings.host_nic_exclude_by_mac_list is not None and \
                     pnic_mac_address in self.settings.host_nic_exclude_by_mac_list:
-                log.debug2(f"Host NIC with MAC '{pnic_mac_address}' excluded from sync. Skipping")
+                logger.trivial(f"Host NIC with MAC '{pnic_mac_address}' excluded from sync. Skipping")
                 continue
 
             pnic_data = {
@@ -1917,7 +1912,7 @@ class VMWareHandler(SourceBase):
 
             vnic_name = grab(vnic, "device")
 
-            log.debug2("Parsing {}: {}".format(grab(vnic, "_wsdlName"), vnic_name))
+            logger.trivial("Parsing {}: {}".format(grab(vnic, "_wsdlName"), vnic_name))
 
             vnic_portgroup = grab(vnic, "portgroup")
             vnic_portgroup_data = self.network_data["host_pgroup"][name].get(vnic_portgroup)
@@ -2100,7 +2095,7 @@ class VMWareHandler(SourceBase):
         if vm_uuid is None or vm_uuid in self.processed_vm_uuid and obj not in self.objects_to_reevaluate:
             return
 
-        log.debug(f"Parsing vCenter VM: {name}")
+        logger.debug(f"Parsing vCenter VM: {name}")
 
         # get VM power state
         status = "active" if get_string_or_none(grab(obj, "runtime.powerState")) == "poweredOn" else "offline"
@@ -2108,17 +2103,17 @@ class VMWareHandler(SourceBase):
         # check if vm is template
         template = grab(obj, "config.template")
         if bool(self.settings.skip_vm_templates) is True and template is True:
-            log.debug2(f"VM '{name}' is a template. Skipping")
+            logger.trivial(f"VM '{name}' is a template. Skipping")
             return
 
         if bool(self.settings.skip_srm_placeholder_vms) is True \
                 and f"{grab(obj, 'config.managedBy.extensionKey')}".startswith("com.vmware.vcDr"):
-            log.debug2(f"VM '{name}' is a SRM placeholder VM. Skipping")
+            logger.trivial(f"VM '{name}' is a SRM placeholder VM. Skipping")
             return
 
         # ignore offline VMs during first run
         if self.parsing_vms_the_first_time is True and status == "offline":
-            log.debug2(f"Ignoring {status} VM '{name}' on first run")
+            logger.trivial(f"Ignoring {status} VM '{name}' on first run")
             return
 
         # add to processed VMs
@@ -2137,14 +2132,14 @@ class VMWareHandler(SourceBase):
             group = self.get_parent_object_by_class(cluster_object, vim.Datacenter)
 
         if None in [parent_host, cluster_object, group]:
-            log.error(f"Requesting host or cluster for Virtual Machine '{name}' failed. Skipping.")
+            logger.error(f"Requesting host or cluster for Virtual Machine '{name}' failed. Skipping.")
             return
 
         nb_cluster_object = self.get_object_from_cache(cluster_object)
 
         # check VM cluster
         if nb_cluster_object is None:
-            log.debug(f"Virtual machine '{name}' is not part of a permitted cluster. Skipping")
+            logger.debug(f"Virtual machine '{name}' is not part of a permitted cluster. Skipping")
             return
 
         parent_name = grab(parent_host, "name")
@@ -2152,7 +2147,7 @@ class VMWareHandler(SourceBase):
         cluster_full_name = f"{group.name}/{cluster_name}"
 
         if name in self.processed_vm_names.get(cluster_full_name, list()) and obj not in self.objects_to_reevaluate:
-            log.warning(f"Virtual machine '{name}' for cluster '{cluster_full_name}' already parsed. "
+            logger.warning(f"Virtual machine '{name}' for cluster '{cluster_full_name}' already parsed. "
                         "Make sure to use unique VM names. Skipping")
             return
 
@@ -2208,7 +2203,7 @@ class VMWareHandler(SourceBase):
         # check if VM tag excludes VM from being synced to NetBox
         for sync_exclude_tag in self.settings.vm_exclude_by_tag_filter or list():
             if sync_exclude_tag in vcenter_tags:
-                log.debug(f"Virtual machine vCenter tag '{sync_exclude_tag}' in matches 'vm_exclude_by_tag_filter'. "
+                logger.debug(f"Virtual machine vCenter tag '{sync_exclude_tag}' in matches 'vm_exclude_by_tag_filter'. "
                           f"Skipping")
                 return
 
@@ -2282,10 +2277,10 @@ class VMWareHandler(SourceBase):
                     continue
 
                 if ip_a.version == 4 and gateway_ip_address is not None:
-                    log.debug2(f"Found default IPv4 gateway {gateway_ip_address}")
+                    logger.trivial(f"Found default IPv4 gateway {gateway_ip_address}")
                     vm_default_gateway_ip4 = gateway_ip_address
                 elif ip_a.version == 6 and gateway_ip_address is not None:
-                    log.debug2(f"Found default IPv6 gateway {gateway_ip_address}")
+                    logger.trivial(f"Found default IPv6 gateway {gateway_ip_address}")
                     vm_default_gateway_ip6 = gateway_ip_address
 
         nic_data = dict()
@@ -2347,7 +2342,7 @@ class VMWareHandler(SourceBase):
 
             device_class = grab(vm_device, "_wsdlName")
 
-            log.debug2(f"Parsing device {device_class}: {int_mac}")
+            logger.trivial(f"Parsing device {device_class}: {int_mac}")
 
             device_backing = grab(vm_device, "backing")
 
@@ -2523,7 +2518,7 @@ class VMWareHandler(SourceBase):
 
                 int_full_name = "vNIC Dummy-{}".format("".join(guest_nic_mac.split(":")[-2:]))
 
-                log.debug2(f"Parsing dummy network device: {guest_nic_mac}")
+                logger.trivial(f"Parsing dummy network device: {guest_nic_mac}")
 
                 if nic_ips.get(int_full_name) is None:
                     nic_ips[int_full_name] = list()
@@ -2544,7 +2539,7 @@ class VMWareHandler(SourceBase):
                 }
 
                 if len(nic_ips.get(int_full_name, list())) == 0:
-                    log.debug(f"Dummy network interface '{int_full_name}' has no IP addresses assigned. Skipping")
+                    logger.debug(f"Dummy network interface '{int_full_name}' has no IP addresses assigned. Skipping")
                     continue
 
                 nic_data[int_full_name] = vm_nic_data
@@ -2565,7 +2560,7 @@ class VMWareHandler(SourceBase):
                     potential_primary_ipv6_list.append(ip_address_object)
 
             if len(potential_primary_ipv6_list) == 1:
-                log.debug(f"Found one IPv6 '{potential_primary_ipv6_list[0]}' address on all interfaces of "
+                logger.debug(f"Found one IPv6 '{potential_primary_ipv6_list[0]}' address on all interfaces of "
                           f"VM '{name}', using it as primary IPv6.")
                 vm_primary_ip6 = potential_primary_ipv6_list[0]
 

@@ -10,9 +10,9 @@
 from typing import Any
 
 from module.config.formatter import DescriptionFormatterMixin
-from module.common.logging import get_logger
+from loguru import logger
 
-log = get_logger()
+
 
 
 class ConfigOption(DescriptionFormatterMixin):
@@ -86,7 +86,7 @@ class ConfigOption(DescriptionFormatterMixin):
             try:
                 config_value = self.to_bool(value)
             except ValueError:
-                log.error(f"Unable to parse '{value}' for '{self.key}' as bool")
+                logger.error(f"Unable to parse '{value}' for '{self.key}' as bool")
                 self.parsing_failed = True
                 return
 
@@ -94,7 +94,7 @@ class ConfigOption(DescriptionFormatterMixin):
             try:
                 config_value = int(value)
             except ValueError:
-                log.error(f"Unable to parse '{value}' for '{self.key}' as int")
+                logger.error(f"Unable to parse '{value}' for '{self.key}' as int")
                 self.parsing_failed = True
                 return
         else:

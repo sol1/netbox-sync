@@ -26,6 +26,7 @@ from module.common.config import CommonConfig
 from module.config.file_output import ConfigFileOutput
 from module import __version__, __version_date__, __description__
 
+from loguru import logger
 
 def main():
 
@@ -48,17 +49,13 @@ def main():
     # cli option overwrites config file
     log_level = grab(args, "log_level", fallback=common_config.log_level)
 
-    log_file = None
-    if common_config.log_to_file is True:
-        log_file = common_config.log_file
-
     # setup logging
-    log = setup_logging(log_level, log_file)
+    setup_logging(log_level=log_level, enable_log_file=common_config.log_to_file, log_file=common_config.log_file, log_to_screen=True)
 
     # now we are ready to go
-    log.info(f"Starting {__description__} v{__version__} ({__version_date__})")
+    logger.info(f"Starting {__description__} v{__version__} ({__version_date__})")
     for config_file in config_parse_handler.file_list:
-        log.debug(f"Using config file: {config_file}")
+        logger.info(f"Using config file: {config_file}")
 
     # exit if any parser errors occurred here
     config_parse_handler.log_end_exit_on_errors()
@@ -84,20 +81,20 @@ def main():
         exit(0)
 
     # instantiate source handlers and get attributes
-    log.info("Initializing sources")
+    logger.info("Initializing sources")
     sources = instantiate_sources()
 
     # all sources are unavailable
     if len(sources) == 0:
-        log.error("No working sources found. Exit.")
+        logger.error("No working sources found. Exit.")
         exit(1)
 
     # collect all dependent object classes
-    log.info("Querying necessary objects from NetBox. This might take a while.")
+    logger.info("Querying necessary objects from NetBox. This might take a while.")
     for source in sources:
         nb_handler.query_current_data(source.dependent_netbox_objects)
 
-    log.info("Finished querying necessary objects from NetBox")
+    logger.info("Finished querying necessary objects from NetBox")
 
     # resolve object relations within the initial inventory
     inventory.resolve_relations()
@@ -107,7 +104,7 @@ def main():
 
     # loop over sources and patch netbox data
     for source in sources:
-        log.debug(f"Retrieving data from source '{source.name}'")
+        logger.debug(f"Retrieving data from source '{source.name}'")
         source.apply()
 
     # add/remove tags to/from all inventory items
@@ -117,7 +114,7 @@ def main():
     inventory.query_ptr_records_for_all_ips()
 
     if args.dry_run is True:
-        log.info("This is a dry run and we stop here. Running time: %s" %
+        logger.info("This is a dry run and we stop here. Running time: %s" %
                  get_relative_time(datetime.now() - start_time))
         exit(0)
 
@@ -139,7 +136,7 @@ def main():
     nb_handler.finish()
 
     # finish
-    log.info("Completed NetBox Sync in %s" % get_relative_time(datetime.now() - start_time))
+    logger.info("Completed NetBox Sync in %s" % get_relative_time(datetime.now() - start_time))
 
 
 if __name__ == "__main__":

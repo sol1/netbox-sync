@@ -14,10 +14,10 @@ from ipaddress import ip_network, IPv4Network, IPv6Network
 from packaging import version
 
 from module.common.misc import grab
-from module.common.logging import get_logger
+from loguru import logger
 from module.netbox.manufacturer_mapping import sanitize_manufacturer_name
 
-log = get_logger()
+
 
 
 class NetBoxInterfaceType:
@@ -483,7 +483,7 @@ class NetBoxObject:
         for x in range(1,20):
             new_slug = f"{slug}-{x}"
             if self.inventory.slug_used(self.__class__, new_slug) is False and len(new_slug) <= max_len:
-                log.info(f"Slug '{slug}' for {self.name} '{text}' has been used. "
+                logger.info(f"Slug '{slug}' for {self.name} '{text}' has been used. "
                          f"Assigning slug '{new_slug}'")
                 return new_slug
 
@@ -523,10 +523,10 @@ class NetBoxObject:
 
             if self.skip_object_if_mandatory_attr_is_missing is True:
                 device_url = data.get("url") or self.data.get('url')
-                log.debug2(f"This '{self.name}' ({self.nb_id}) data structure does not contain "
+                logger.trivial(f"This '{self.name}' ({self.nb_id}) data structure does not contain "
                            f"the primary key '{self.primary_key}'. Skipping. Link: {device_url}")
             else:
-                log.error(f"This '{self.name}' data structure does not contain "
+                logger.error(f"This '{self.name}' data structure does not contain "
                           f"the primary key '{self.primary_key}' got: {data}")
             return None
 
@@ -548,18 +548,18 @@ class NetBoxObject:
         if display_name is None:
             display_name = self.get_display_name()
 
-        log.debug2(f"Parsing '{self.name}' data structure: {display_name}")
+        logger.trivial(f"Parsing '{self.name}' data structure: {display_name}")
 
         parsed_data = dict()
         for key, value in data.items():
 
             if key not in self.data_model.keys():
-                log.error(f"Found undefined data model key '{key}' for object '{self.__class__.__name__}'")
+                logger.error(f"Found undefined data model key '{key}' for object '{self.__class__.__name__}'")
                 continue
 
             # skip unset values
             if value is None:
-                log.info(f"Found unset key '{key}' while parsing {display_name}. Skipping This key")
+                logger.info(f"Found unset key '{key}' while parsing {display_name}. Skipping This key")
                 continue
 
             # check data model to see how we have to parse the value
@@ -568,7 +568,7 @@ class NetBoxObject:
             # value must be a string witch a certain max length
             if isinstance(defined_value_type, int):
                 if not isinstance(value, str):
-                    log.error(f"Invalid data type for '{self.__class__.__name__}.{key}' (must be str), got: "
+                    logger.error(f"Invalid data type for '{self.__class__.__name__}.{key}' (must be str), got: "
                               f"{value} ({type(value)})")
                     continue
 
@@ -582,13 +582,13 @@ class NetBoxObject:
                 if isinstance(value, NetBoxObject):
 
                     if type(value) not in defined_value_type:
-                        log.error(f"Invalid data type for '{key}' (must be one of {defined_value_type}), "
+                        logger.error(f"Invalid data type for '{key}' (must be one of {defined_value_type}), "
                                   f"got: '{type(value)}'")
                         continue
 
                 # check if value is in defined list
                 elif value not in defined_value_type:
-                    log.error(f"Invalid data type for '{key}' (must be one of {defined_value_type}), got: '{value}'")
+                    logger.error(f"Invalid data type for '{key}' (must be one of {defined_value_type}), got: '{value}'")
                     continue
 
             # just check the type of the value
@@ -596,7 +596,7 @@ class NetBoxObject:
             for valid_type in [bool, str, int, list]:
 
                 if defined_value_type == valid_type and not isinstance(value, valid_type):
-                    log.error(f"Invalid data type for '{key}' (must be {valid_type.__name__}), got: '{value}'")
+                    logger.error(f"Invalid data type for '{key}' (must be {valid_type.__name__}), got: '{value}'")
                     type_check_failed = True
                     break
 
@@ -617,11 +617,11 @@ class NetBoxObject:
 
             if defined_value_type == NBCustomField:
                 if not isinstance(value, dict):
-                    log.error(f"Invalid data type for '{key}' (must be 'dict'), got: '{value}'")
+                    logger.error(f"Invalid data type for '{key}' (must be 'dict'), got: '{value}'")
                     continue
                 for field_name in value.keys():
                     if self.inventory.get_by_data(NBCustomField, data={"name": field_name}) is None:
-                        log.error(f"{NBCustomField.name} '{field_name}' not found in inventory. "
+                        logger.error(f"{NBCustomField.name} '{field_name}' not found in inventory. "
                                   "Needs to be created first!")
                         type_check_failed = True
 
@@ -716,7 +716,7 @@ class NetBoxObject:
                 if self._original_data.get(key) == new_value_str and key in self.updated_items:
                     self.data[key] = new_value
                     self.updated_items.remove(key)
-                    log.debug(f"{self.name.capitalize()} '{display_name}' attribute '{key}' was set back to "
+                    logger.debug(f"{self.name.capitalize()} '{display_name}' attribute '{key}' was set back to "
                               f"original NetBox value '{current_value_str}'")
                     continue
 
@@ -726,7 +726,7 @@ class NetBoxObject:
                     self._original_data[key] = current_value_str
 
                 new_value_str = new_value_str.replace("\n", " ")
-                log.info(f"{self.name.capitalize()} '{display_name}' attribute '{key}' changed from "
+                logger.info(f"{self.name.capitalize()} '{display_name}' attribute '{key}' changed from "
                          f"'{current_value_str}' to '{new_value_str}'")
 
             self.data[key] = new_value
@@ -736,7 +736,7 @@ class NetBoxObject:
             self.resolve_relations()
 
         if data_updated is True and self.is_new is False:
-            log.debug("Updated %s object: %s" % (self.name, self.get_display_name()))
+            logger.debug("Updated %s object: %s" % (self.name, self.get_display_name()))
 
     def set_source(self, source=None):
         """
@@ -794,9 +794,9 @@ class NetBoxObject:
                 secondary_key_value = self.get_display_name(data=secondary_key_value)
 
             if secondary_key_value is None and read_from_netbox is False and include_secondary_key_if_present is False:
-                log.warning(f"Unable to determine second key '{secondary_key}' for {self.name} '{my_name}', "
+                logger.warning(f"Unable to determine second key '{secondary_key}' for {self.name} '{my_name}', "
                             f"got: {org_secondary_key_value}")
-                log.warning("This could cause serious errors and lead to wrongly assigned object relations!!!")
+                logger.warning("This could cause serious errors and lead to wrongly assigned object relations!!!")
 
             my_name = f"{my_name} ({secondary_key_value})"
 
@@ -859,7 +859,7 @@ class NetBoxObject:
             if resolved_data is not None:
                 self.data[key] = resolved_data
             else:
-                log.error(f"Problems resolving relation '{key}' for object '{self.get_display_name()}' and "
+                logger.error(f"Problems resolving relation '{key}' for object '{self.get_display_name()}' and "
                           f"value '{data_value}'")
 
     def resolve_scoped_relations(self, id_attr, type_attr):
@@ -876,7 +876,7 @@ class NetBoxObject:
             self.data[id_attr] = self.inventory.get_by_id(mapping.get(o_type), nb_id=o_id)
         elif o_id is not None and not isinstance(o_id, NetBoxObject):
             o_id_name = grab(self, f"data.{id_attr}.name")
-            log.debug(f"{self.name} '{self.data.get('name')}' {type_attr} '{o_type}' for "
+            logger.debug(f"{self.name} '{self.data.get('name')}' {type_attr} '{o_type}' for "
                       f"'{o_id_name}' is currently not supported")
             self.data[type_attr] = ""
 
@@ -914,8 +914,8 @@ class NetBoxObject:
                 if tag_name not in tag_list:
                     tag_list.append(tag_name)
             else:
-                log.error(f"This tag is not an NetBox object: {tag}")
-                log.error(f"Please report this here: https://github.com/bb-Ricardo/netbox-sync/issues/120")
+                logger.error(f"This tag is not an NetBox object: {tag}")
+                logger.error(f"Please report this here: https://github.com/bb-Ricardo/netbox-sync/issues/120")
 
         return tag_list
 
@@ -952,7 +952,7 @@ class NetBoxObject:
 
         """
         disable logging
-        log.debug2(f"Compiling TAG list")
+        logger.trivial(f"Compiling TAG list")
         """
 
         new_tag_list = NBTagList()
@@ -1032,7 +1032,7 @@ class NetBoxObject:
         """
         disable logging
         action = "Adding" if remove is False else "Removing"
-        log.debug2(f"{action} Tags: {tags}")
+        logger.trivial(f"{action} Tags: {tags}")
         """
 
         current_tags = grab(self, "data.tags", fallback=NBTagList())
@@ -1044,7 +1044,7 @@ class NetBoxObject:
             self.data["tags"] = new_tags
             self.updated_items.append("tags")
 
-            log.info(f"{self.name.capitalize()} '{self.get_display_name()}' attribute 'tags' changed from "
+            logger.info(f"{self.name.capitalize()} '{self.get_display_name()}' attribute 'tags' changed from "
                      f"'{current_tags.get_display_name()}' to '{new_tags.get_display_name()}'")
 
     def add_tags(self, tags_to_add):
@@ -1100,7 +1100,7 @@ class NetBoxObject:
         if not isinstance(vlans, list):
             raise ValueError("Value for vlans must be a list")
 
-        log.debug2(f"Compiling VLAN list")
+        logger.trivial(f"Compiling VLAN list")
         new_vlan_list = NBVLANList()
 
         for vlan in vlans:
@@ -1110,7 +1110,7 @@ class NetBoxObject:
             elif isinstance(vlan, dict):
                 new_vlan_object = self.inventory.add_update_object(NBVLAN, data=vlan, source=self.source)
             else:
-                log.error(f"Unable to parse provided VLAN data: {vlan}")
+                logger.error(f"Unable to parse provided VLAN data: {vlan}")
                 continue
 
             # set source for this vlan if undefined
@@ -1187,7 +1187,7 @@ class NetBoxObject:
             return
 
         if attribute_name not in self.data_model.keys():
-            log.error(f"Found undefined data model key '{attribute_name}' for object '{self.__class__.__name__}'")
+            logger.error(f"Found undefined data model key '{attribute_name}' for object '{self.__class__.__name__}'")
             return
 
         data_type = self.data_model.get(attribute_name)
@@ -1204,7 +1204,7 @@ class NetBoxObject:
             return
 
         # mark attribute to unset, this way it will be deleted in NetBox before any other updates are performed
-        log.info(f"Setting attribute '{attribute_name}' for '{self.get_display_name()}' to None")
+        logger.info(f"Setting attribute '{attribute_name}' for '{self.get_display_name()}' to None")
         self.unset_items.append(attribute_name)
 
     def get_nb_reference(self):
@@ -1322,7 +1322,7 @@ class NBCustomField(NetBoxObject):
 
         for object_type in data.get("object_types"):
             if object_type not in self.valid_object_types and read_from_netbox is False:
-                log.error(f"Invalid content type '{object_type}' for {self.name}")
+                logger.error(f"Invalid content type '{object_type}' for {self.name}")
                 continue
 
             if object_type not in current_object_types:
@@ -1671,7 +1671,7 @@ class NBPrefix(NetBoxObject):
             try:
                 data[self.primary_key] = ip_network(data_prefix)
             except ValueError as e:
-                log.error(f"Failed to parse {self.name} '{data_prefix}': {e}")
+                logger.error(f"Failed to parse {self.name} '{data_prefix}': {e}")
                 return
 
         super().update(data=data, read_from_netbox=read_from_netbox, source=source)
@@ -2066,7 +2066,7 @@ class NBInterface(NetBoxObject):
 
         # remove definition of interface type if a parent interface is set as it only supports virtual types
         if grab(self, "data.parent") is not None and data.get("type") is not None:
-            log.debug2(f"{self.name} '{self.get_display_name()}' attribute 'parent' is set. "
+            logger.trivial(f"{self.name} '{self.get_display_name()}' attribute 'parent' is set. "
                        f"Removing type {data.get('type')} from update request")
             del data["type"]
 

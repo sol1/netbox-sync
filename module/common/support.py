@@ -11,9 +11,9 @@ import asyncio
 
 import aiodns
 
-from module.common.logging import get_logger
+from loguru import logger
 
-log = get_logger()
+
 
 
 def normalize_mac_address(mac_address=None):
@@ -66,10 +66,10 @@ def perform_ptr_lookups(ips, dns_servers=None):
 
     if dns_servers is not None:
         if isinstance(dns_servers, list):
-            log.debug2("using provided DNS servers to perform lookup: %s" % ", ".join(dns_servers))
+            logger.trivial("using provided DNS servers to perform lookup: %s" % ", ".join(dns_servers))
             resolver.nameservers = dns_servers
         else:
-            log.error(f"List of provided DNS servers invalid: {dns_servers}")
+            logger.error(f"List of provided DNS servers invalid: {dns_servers}")
 
     queue = asyncio.gather(*(reverse_lookup(resolver, ip) for ip in ips))
     results = loop.run_until_complete(queue)
@@ -99,22 +99,22 @@ async def reverse_lookup(resolver, ip):
     resolved_name = None
     response = None
 
-    log.debug2(f"Requesting PTR record: {ip}")
+    logger.trivial(f"Requesting PTR record: {ip}")
 
     try:
         response = await resolver.gethostbyaddr(ip)
     except aiodns.error.DNSError as err:
-        log.debug("Unable to find a PTR record for %s: %s", ip, err.args[1])
+        logger.debug("Unable to find a PTR record for %s: %s", ip, err.args[1])
 
     if response is not None and response.name is not None:
 
         # validate record to check if this is a valid host name
         if all([bool(str(c).lower() in valid_hostname_characters) for c in response.name]):
             resolved_name = response.name.lower()
-            log.debug2(f"PTR record for {ip}: {resolved_name}")
+            logger.trivial(f"PTR record for {ip}: {resolved_name}")
 
         else:
-            log.warning(f"PTR record contains invalid characters: {response.name}")
+            logger.warning(f"PTR record contains invalid characters: {response.name}")
 
     return {ip: resolved_name}
 

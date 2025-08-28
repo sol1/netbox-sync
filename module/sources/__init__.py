@@ -11,7 +11,7 @@
 from module.sources.vmware.connection import VMWareHandler
 from module.sources.check_redfish.import_inventory import CheckRedfish
 
-from module.common.logging import get_logger
+from loguru import logger
 from module.netbox.inventory import NetBoxInventory
 from module.config.parser import ConfigParser
 from module.config.base import ConfigOptions
@@ -80,7 +80,7 @@ def instantiate_sources():
     config = ConfigParser()
     inventory = NetBoxInventory()
 
-    log = get_logger()
+    
 
     # first validate all available sources
     for possible_source_class in valid_sources:
@@ -96,7 +96,7 @@ def instantiate_sources():
 
         source_config_type = source_config.get("type")
         if source_config_type is None:
-            log.error(f"Source {source_name} option 'type' is undefined")
+            logger.error(f"Source {source_name} option 'type' is undefined")
             continue
 
         source_class = None
@@ -108,7 +108,7 @@ def instantiate_sources():
                 break
 
         if source_class is None:
-            log.error(f"Unknown source type '{source_config_type}' defined for '{source_name}'")
+            logger.error(f"Unknown source type '{source_config_type}' defined for '{source_name}'")
             continue
 
         source_handler = source_class(name=source_name)

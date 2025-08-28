@@ -18,20 +18,20 @@ import urllib3
 import requests
 from packaging import version
 
-from module.common.logging import get_logger, DEBUG3
+from loguru import logger
 from module.common.misc import grab, do_error_exit, plural
 from module.netbox import *
 from module.netbox.inventory import NetBoxInventory
 from module.netbox.config import NetBoxConfig
 from module import __version__
 
-log = get_logger()
+
 
 # test for necessary requests exception class
 try:
     from requests.exceptions import JSONDecodeError as RequestsJSONDecodeError
 except ImportError:
-    log.error(f"Discovered outdated 'requests' version '{requests.__version__}'. Update of virtual environment needed.")
+    logger.error(f"Discovered outdated 'requests' version '{requests.__version__}'. Update of virtual environment needed.")
     exit(1)
 
 
@@ -64,8 +64,8 @@ class NetBoxHandler:
         self.inventory = NetBoxInventory()
 
         # flood the console
-        if log.level == DEBUG3:
-            log.warning("Log level is set to DEBUG3, Request logs will only be printed to console")
+        if logger.level == "TRACE":
+            logger.warning("Log level is set to TRACE, setting HTTPConnection.debuglevel to 1")
 
             HTTPConnection.debuglevel = 1
 
@@ -118,7 +118,7 @@ class NetBoxHandler:
 
         # check if directory is a file
         if os.path.isfile(self.cache_directory):
-            log.warning(f"The cache directory ({self.cache_directory}) seems to be file.")
+            logger.warning(f"The cache directory ({self.cache_directory}) seems to be file.")
             self.settings.use_caching = False
 
         # check if directory exists
@@ -127,21 +127,21 @@ class NetBoxHandler:
             try:
                 os.makedirs(self.cache_directory, 0o700)
             except OSError:
-                log.warning(f"Unable to create cache directory: {self.cache_directory}")
+                logger.warning(f"Unable to create cache directory: {self.cache_directory}")
                 self.settings.use_caching = False
             except Exception as e:
-                log.warning(f"Unknown exception while creating cache directory {self.cache_directory}: {e}")
+                logger.warning(f"Unknown exception while creating cache directory {self.cache_directory}: {e}")
                 self.settings.use_caching = False
 
         # check if directory is writable
         if not os.access(self.cache_directory, os.X_OK | os.W_OK):
-            log.warning(f"Error writing to cache directory: {self.cache_directory}")
+            logger.warning(f"Error writing to cache directory: {self.cache_directory}")
             self.settings.use_caching = False
 
         if self.settings.use_caching is False:
-            log.warning("NetBox caching DISABLED")
+            logger.warning("NetBox caching DISABLED")
         else:
-            log.debug(f"Successfully configured cache directory: {self.cache_directory}")
+            logger.debug(f"Successfully configured cache directory: {self.cache_directory}")
 
     def create_session(self) -> requests.Session:
         """
@@ -175,7 +175,7 @@ class NetBoxHandler:
             else:
                 session.cert = self.settings.client_cert
 
-        log.debug("Created new requests Session for NetBox.")
+        logger.debug("Created new requests Session for NetBox.")
 
         return session
 
@@ -185,7 +185,7 @@ class NetBoxHandler:
         try:
             self.session.close()
         except Exception as e:
-            log.error(f"unable to close NetBox connection: {e}")
+            logger.error(f"unable to close NetBox connection: {e}")
 
     def get_api_version(self):
         """
@@ -206,8 +206,8 @@ class NetBoxHandler:
 
         result = str(response.headers.get("API-Version"))
 
-        log.info(f"Successfully connected to NetBox '{self.settings.host_fqdn}'")
-        log.debug(f"Detected NetBox API version: {result}")
+        logger.info(f"Successfully connected to NetBox '{self.settings.host_fqdn}'")
+        logger.debug(f"Detected NetBox API version: {result}")
 
         return result
 
@@ -243,7 +243,7 @@ class NetBoxHandler:
             request_url += f"{nb_id}/"
 
         if params is not None and not isinstance(params, dict):
-            log.debug(f"Params passed to NetBox request need to be a dict, got: {params}")
+            logger.debug(f"Params passed to NetBox request need to be a dict, got: {params}")
             params = dict()
 
         if req_type == "GET":
@@ -276,7 +276,7 @@ class NetBoxHandler:
             if this_request.method == "GET" and result is not None:
                 while response.json().get("next") is not None:
                     this_request.url = response.json().get("next")
-                    log.debug2("NetBox results are paginated. Getting next page")
+                    logger.trivial("NetBox results are paginated. Getting next page")
 
                     response = self.single_request(this_request)
                     result["results"].extend(response.json().get("results"))
@@ -292,7 +292,7 @@ class NetBoxHandler:
             else:
                 object_name = result.get(object_class.primary_key)
 
-            log.info(f"NetBox successfully {action} {object_class.name} object '{object_name}'.")
+            logger.info(f"NetBox successfully {action} {object_class.name} object '{object_name}'.")
 
             if response.status_code == 204:
                 result = True
@@ -305,8 +305,8 @@ class NetBoxHandler:
         # we screw up something else
         elif 400 <= response.status_code < 500:
 
-            log.error(f"NetBox returned: {this_request.method} {this_request.path_url} {response.reason}")
-            log.error(f"NetBox returned body: {result}")
+            logger.error(f"NetBox returned: {this_request.method} {this_request.path_url} {response.reason}")
+            logger.error(f"NetBox returned body: {result}")
             result = None
 
         elif response.status_code >= 500:
@@ -332,8 +332,7 @@ class NetBoxHandler:
 
         response = None
 
-        if log.level == DEBUG3:
-            pprint.pprint(vars(this_request))
+        logger.trace(json.dumps({**vars(this_request), "headers": dict(this_request.headers)}, indent=4, default=str))
 
         for _ in range(self.settings.max_retry_attempts):
 
@@ -342,7 +341,7 @@ class NetBoxHandler:
             if this_request.body is not None:
                 log_message += f" with data '{this_request.body}'."
 
-                log.debug2(log_message)
+                logger.trivial(log_message)
 
             try:
                 response = self.session.send(this_request,
@@ -350,22 +349,19 @@ class NetBoxHandler:
                                              verify=self.settings.validate_tls_certs)
 
             except (ConnectionError, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
-                log.warning(f"Request failed, trying again: {log_message}")
+                logger.warning(f"Request failed, trying again: {log_message}")
                 continue
             else:
                 break
         else:
             do_error_exit(f"Giving up after {self.settings.max_retry_attempts} retries.")
-
-        log.debug2("Received HTTP Status %s.", response.status_code)
+        logger.debug(f"Received HTTP Status {response.status_code}.")
 
         # print debugging information
-        if log.level == DEBUG3:
-            log.debug("Response Body:")
-            try:
-                pprint.pprint(response.json())
-            except (json.decoder.JSONDecodeError, RequestsJSONDecodeError) as e:
-                log.error(e)
+        try:
+            logger.trace(f"Response Body: {response.json()}")
+        except (json.decoder.JSONDecodeError, RequestsJSONDecodeError) as e:
+            logger.trace(f"Response Body: \n{response.text} (unable to decode JSON: {e})")
 
         return response
 
@@ -401,7 +397,7 @@ class NetBoxHandler:
             cache_tainted = False
         else:
             if cached_version is not None:
-                log.info(f"Cache was build for NetBox version {cached_version} "
+                logger.info(f"Cache was build for NetBox version {cached_version} "
                          f"which does not match discovered NetBox version {self.inventory.netbox_api_version}. "
                          f"Rebuilding cache.")
 
@@ -431,11 +427,11 @@ class NetBoxHandler:
                 cache_this_class = True
 
                 if os.path.exists(cache_file) and not os.access(cache_file, os.R_OK):
-                    log.warning(f"Got no permission to read existing cache file: {cache_file}")
+                    logger.warning(f"Got no permission to read existing cache file: {cache_file}")
                     cache_this_class = False
 
                 if os.path.exists(cache_file) and not os.access(cache_file, os.W_OK):
-                    log.warning(f"Got no permission to write to existing cache file: {cache_file}")
+                    logger.warning(f"Got no permission to write to existing cache file: {cache_file}")
                     cache_this_class = False
 
             # read data from cache file
@@ -457,7 +453,7 @@ class NetBoxHandler:
                     if len(latest_update_list) > 0:
                         latest_update = sorted(latest_update_list)[-1]
 
-                        log.debug(f"Successfully read cached data with {len(cached_nb_data)} '{nb_object_class.name}%s'"
+                        logger.debug(f"Successfully read cached data with {len(cached_nb_data)} '{nb_object_class.name}%s'"
                                   f", last updated '{latest_update}'" % plural(len(cached_nb_data)))
 
                     elif self.testing_cache is False:
@@ -480,29 +476,29 @@ class NetBoxHandler:
             if latest_update is None:
 
                 # get all objects of this class
-                log.debug(f"Requesting all {nb_object_class.name}s from NetBox")
+                logger.debug(f"Requesting all {nb_object_class.name}s from NetBox")
                 full_nb_data = self.request(nb_object_class)
 
                 if full_nb_data.get("results") is None:
-                    log.error(f"Result data from NetBox for object {nb_object_class.__name__} missing!")
+                    logger.error(f"Result data from NetBox for object {nb_object_class.__name__} missing!")
                     do_error_exit("Reading data from NetBox failed.")
 
             else:
 
                 # request a brief list of existing objects
-                log.debug(f"Requesting a brief list of {nb_object_class.name}s from NetBox")
+                logger.debug(f"Requesting a brief list of {nb_object_class.name}s from NetBox")
                 brief_params = {"brief": 1, "limit": 500}
                 if version.parse(self.inventory.netbox_api_version) >= version.parse("4.0"):
                     brief_params["fields"] = "id"
                 brief_nb_data = self.request(nb_object_class, params=brief_params)
-                log.debug("NetBox returned %d results." % len(brief_nb_data.get("results", list())))
+                logger.debug("NetBox returned %d results." % len(brief_nb_data.get("results", list())))
 
-                log.debug(f"Requesting the last updates since {latest_update} of {nb_object_class.name}s from NetBox")
+                logger.debug(f"Requesting the last updates since {latest_update} of {nb_object_class.name}s from NetBox")
                 updated_nb_data = self.request(nb_object_class, params={"last_updated__gte": latest_update})
-                log.debug("NetBox returned %d results." % len(updated_nb_data.get("results", list())))
+                logger.debug("NetBox returned %d results." % len(updated_nb_data.get("results", list())))
 
                 if brief_nb_data.get("results") is None or updated_nb_data.get("results") is None:
-                    log.error(f"Result data from NetBox for object {nb_object_class.__name__} missing!")
+                    logger.error(f"Result data from NetBox for object {nb_object_class.__name__} missing!")
                     do_error_exit("Reading data from NetBox failed.")
 
             # read a full set from NetBox
@@ -530,11 +526,11 @@ class NetBoxHandler:
                 try:
                     pickle.dump(nb_objects, open(cache_file, "wb"))
                     if cache_this_class is True:
-                        log.debug("Successfully cached %d objects." % (len(nb_objects)))
+                        logger.debug("Successfully cached %d objects." % (len(nb_objects)))
                 except Exception as e:
-                    log.warning(f"Failed to write NetBox data to cache file: {e}")
+                    logger.warning(f"Failed to write NetBox data to cache file: {e}")
 
-            log.debug(f"Processing %s returned {nb_object_class.name}%s" % (len(nb_objects), plural(len(nb_objects))))
+            logger.debug(f"Processing %s returned {nb_object_class.name}%s" % (len(nb_objects), plural(len(nb_objects))))
 
             for object_data in nb_objects:
                 self.inventory.add_object(nb_object_class, data=object_data, read_from_netbox=True)
@@ -555,7 +551,7 @@ class NetBoxHandler:
         objects are no longer exists in source to automatically remove them
         """
 
-        log.debug("Checking/Adding NetBox Sync dependencies")
+        logger.debug("Checking/Adding NetBox Sync dependencies")
 
         prune_text = f"Pruning is enabled and Objects will be automatically " \
                      f"removed after {self.settings.prune_delay_in_days} days"
@@ -622,21 +618,21 @@ class NetBoxHandler:
                     else:
                         unset_data[unset_item] = None
 
-                log.info("Updating NetBox '%s' object '%s' with data: %s" %
+                logger.info("Updating NetBox '%s' object '%s' with data: %s" %
                          (this_object.name, this_object.get_display_name(), unset_data))
 
                 returned_object_data = self.request(nb_object_sub_class, req_type="PATCH",
                                                     data=unset_data, nb_id=this_object.nb_id)
 
                 if returned_object_data is None:
-                    log.error(f"Request Failed for {nb_object_sub_class.name}. Used data: {unset_data}")
+                    logger.error(f"Request Failed for {nb_object_sub_class.name}. Used data: {unset_data}")
 
                 continue
 
             # resolve dependencies
             for dependency in this_object.get_dependencies():
                 if dependency not in self.resolved_dependencies:
-                    log.debug2("Resolving dependency: %s" % dependency.name)
+                    logger.trivial("Resolving dependency: %s" % dependency.name)
                     self.update_object(dependency)
 
             data_to_patch = dict()
@@ -681,7 +677,7 @@ class NetBoxHandler:
                     req_type = "PATCH"
                     action = "Updating"
 
-                log.info("%s NetBox '%s' object '%s' with data: %s" %
+                logger.info("%s NetBox '%s' object '%s' with data: %s" %
                          (action, this_object.name, this_object.get_display_name(), data_to_patch))
 
                 returned_object_data = self.request(nb_object_sub_class, req_type=req_type,
@@ -696,11 +692,11 @@ class NetBoxHandler:
                 this_object.resolve_relations()
 
             elif issued_request is True:
-                log.error(f"Request Failed for {nb_object_sub_class.name}. Used data: {data_to_patch}")
+                logger.error(f"Request Failed for {nb_object_sub_class.name}. Used data: {data_to_patch}")
 
             # add unresolved dependencies back to object
             if len(unresolved_dependency_data.keys()) > 0:
-                log.debug2("Adding unresolved dependencies back to object: %s" %
+                logger.trivial("Adding unresolved dependencies back to object: %s" %
                            list(unresolved_dependency_data.keys()))
                 this_object.update(data=unresolved_dependency_data)
 
@@ -723,22 +719,22 @@ class NetBoxHandler:
         At the end check if any unresolved dependencies are still left
         """
 
-        log.info("Updating changed data in NetBox")
+        logger.info("Updating changed data in NetBox")
 
         # update all items in NetBox but unset items first
-        log.debug("First run, unset attributes if necessary.")
+        logger.debug("First run, unset attributes if necessary.")
         self.resolved_dependencies = set()
         for nb_object_sub_class in NetBoxObject.__subclasses__():
             self.update_object(nb_object_sub_class, unset=True)
 
         # update all items
-        log.debug("Second run, update all items")
+        logger.debug("Second run, update all items")
         self.resolved_dependencies = set()
         for nb_object_sub_class in NetBoxObject.__subclasses__():
             self.update_object(nb_object_sub_class)
 
         # run again to updated objects with previous unresolved dependencies
-        log.debug("Third run, update all items with previous unresolved items")
+        logger.debug("Third run, update all items with previous unresolved items")
         self.resolved_dependencies = set()
         for nb_object_sub_class in NetBoxObject.__subclasses__():
             self.update_object(nb_object_sub_class, last_run=True)
@@ -750,7 +746,7 @@ class NetBoxHandler:
                     if key in this_object.updated_items:
 
                         if isinstance(value, (NetBoxObject, NBObjectList)) and value.get_nb_reference() is None:
-                            log.error(f"Unfortunately updated item {key} for object "
+                            logger.error(f"Unfortunately updated item {key} for object "
                                       f"{this_object.get_display_name()} could not be fully resolved: {repr(value)}")
 
     def prune_data(self):
@@ -761,10 +757,10 @@ class NetBoxHandler:
         """
 
         if self.settings.prune_enabled is False:
-            log.debug("Pruning disabled. Skipping")
+            logger.debug("Pruning disabled. Skipping")
             return
 
-        log.info("Pruning orphaned data in NetBox")
+        logger.info("Pruning orphaned data in NetBox")
 
         disabled_sources_tags = \
             [x.source_tag for x in self.inventory.source_list if grab(x, "settings.enabled", fallback=False) is False]
@@ -792,7 +788,7 @@ class NetBoxHandler:
                     continue
 
                 if bool(set(this_object_tags).intersection(disabled_sources_tags)) is True:
-                    log.debug2(f"Object '{this_object.get_display_name()}' was added "
+                    logger.trivial(f"Object '{this_object.get_display_name()}' was added "
                                f"from a currently disabled source. Skipping pruning.")
                     continue
 
@@ -803,7 +799,7 @@ class NetBoxHandler:
                 # only need the date including seconds
                 date_last_update = date_last_update[0:19]
 
-                log.debug2(f"Object '{this_object.name}' '{this_object.get_display_name()}' is Orphaned. "
+                logger.trivial(f"Object '{this_object.name}' '{this_object.get_display_name()}' is Orphaned. "
                            f"Last time changed: {date_last_update}")
 
                 # check prune delay.
@@ -818,13 +814,13 @@ class NetBoxHandler:
                 # it seems we need to delete this object
                 if last_updated is not None and days_since_last_update >= self.settings.prune_delay_in_days:
 
-                    log.info(f"{nb_object_sub_class.name.capitalize()} '{this_object.get_display_name()}' is orphaned "
+                    logger.info(f"{nb_object_sub_class.name.capitalize()} '{this_object.get_display_name()}' is orphaned "
                              f"for {days_since_last_update} days and will be deleted.")
 
                     # delete device/VM interfaces first. interfaces have no last_updated attribute
                     if isinstance(this_object, (NBVM, NBDevice)):
 
-                        log.info(f"Before the '{this_object.name}' can be deleted, all interfaces must be deleted.")
+                        logger.info(f"Before the '{this_object.name}' can be deleted, all interfaces must be deleted.")
 
                         for object_interface in self.inventory.get_all_interfaces(this_object):
 
@@ -832,7 +828,7 @@ class NetBoxHandler:
                             if getattr(object_interface, "deleted", False) is True:
                                 continue
 
-                            log.info(f"Deleting interface '{object_interface.get_display_name()}'")
+                            logger.info(f"Deleting interface '{object_interface.get_display_name()}'")
 
                             ret = self.request(object_interface.__class__, req_type="DELETE",
                                                nb_id=object_interface.nb_id)
@@ -854,17 +850,17 @@ class NetBoxHandler:
         This way we don't need to care about dependencies.
         """
 
-        log.info("Querying necessary objects from NetBox. This might take a while.")
+        logger.info("Querying necessary objects from NetBox. This might take a while.")
         self.query_current_data(NetBoxObject.__subclasses__())
-        log.info("Finished querying necessary objects from NetBox")
+        logger.info("Finished querying necessary objects from NetBox")
 
         self.inventory.resolve_relations()
 
-        log.warning(f"Starting purge now. All objects with the tag '{self.primary_tag}' will be deleted!!!")
+        logger.warning(f"Starting purge now. All objects with the tag '{self.primary_tag}' will be deleted!!!")
 
         for iteration in range(10):
 
-            log.debug("Iteration %d trying to deleted all the objects." % (iteration + 1))
+            logger.debug("Iteration %d trying to deleted all the objects." % (iteration + 1))
 
             found_objects_to_delete = False
 
@@ -886,7 +882,7 @@ class NetBoxHandler:
                     found_objects_to_delete = True
 
                     if self.primary_tag in this_object.get_tags():
-                        log.info(f"{nb_object_sub_class.name} '{this_object.get_display_name()}' will be deleted now")
+                        logger.info(f"{nb_object_sub_class.name} '{this_object.get_display_name()}' will be deleted now")
 
                         result = self.request(nb_object_sub_class, req_type="DELETE", nb_id=this_object.nb_id)
 
@@ -900,17 +896,17 @@ class NetBoxHandler:
                 orphaned_tag = self.inventory.get_by_data(NBTag, data={"name": self.orphaned_tag})
 
                 # try to delete them
-                log.info(f"{NBTag.name} '{primary_tag.get_display_name()}' will be deleted now")
+                logger.info(f"{NBTag.name} '{primary_tag.get_display_name()}' will be deleted now")
                 self.request(NBTag, req_type="DELETE", nb_id=primary_tag.nb_id)
 
-                log.info(f"{NBTag.name} '{orphaned_tag.get_display_name()}' will be deleted now")
+                logger.info(f"{NBTag.name} '{orphaned_tag.get_display_name()}' will be deleted now")
                 self.request(NBTag, req_type="DELETE", nb_id=orphaned_tag.nb_id)
 
-                log.info("Successfully deleted all objects which were synced and tagged by this program.")
+                logger.info("Successfully deleted all objects which were synced and tagged by this program.")
                 break
         else:
 
-            log.warning("Unfortunately we were not able to delete all objects. Sorry")
+            logger.warning("Unfortunately we were not able to delete all objects. Sorry")
 
         return
 
@@ -932,7 +928,7 @@ class NetBoxHandler:
             if tag_tagged_items is None or tag_tagged_items != 0 or this_tag.used is True:
                 continue
 
-            log.info(f"Deleting unused tag '{this_tag.get_display_name()}'")
+            logger.info(f"Deleting unused tag '{this_tag.get_display_name()}'")
             self.request(NBTag, req_type="DELETE", nb_id=this_tag.nb_id)
 
 # EOF

@@ -9,9 +9,9 @@
 
 from ipaddress import ip_address, ip_network, ip_interface
 
-from module.common.logging import get_logger
+from loguru import logger
 
-log = get_logger()
+
 
 
 class PermittedSubnets:
@@ -27,7 +27,7 @@ class PermittedSubnets:
         self.excluded_subnets = list()
 
         if config_string is None:
-            log.info(f"Config option 'permitted_subnets' is undefined. No IP addresses will be populated to NetBox!")
+            logger.info(f"Config option 'permitted_subnets' is undefined. No IP addresses will be populated to NetBox!")
             return
 
         if not isinstance(config_string, str):
@@ -42,7 +42,7 @@ class PermittedSubnets:
                 subnet = subnet[1:].strip()
 
             if "/" not in subnet:
-                log.error(f"permitted subnet '{subnet}' is missing the prefix length (i.e.: {subnet}/24)")
+                logger.error(f"permitted subnet '{subnet}' is missing the prefix length (i.e.: {subnet}/24)")
                 self._validation_failed = True
 
             try:
@@ -51,7 +51,7 @@ class PermittedSubnets:
                 else:
                     self.included_subnets.append(ip_network(subnet))
             except Exception as e:
-                log.error(f"Problem parsing permitted subnet: {e}")
+                logger.error(f"Problem parsing permitted subnet: {e}")
                 self._validation_failed = True
 
     @property
@@ -81,7 +81,7 @@ class PermittedSubnets:
         """
 
         if ip is None:
-            log.warning("No IP address passed to validate if this IP belongs to a permitted subnet")
+            logger.warning("No IP address passed to validate if this IP belongs to a permitted subnet")
             return False
 
         ip_text = f"'{ip}'"
@@ -94,15 +94,15 @@ class PermittedSubnets:
             else:
                 ip_a = ip_address(ip)
         except ValueError:
-            log.error(f"IP address {ip_text} invalid!")
+            logger.error(f"IP address {ip_text} invalid!")
             return False
 
         if ip_a.is_link_local is True:
-            log.debug(f"IP address {ip_text} is a link local address. Skipping.")
+            logger.debug(f"IP address {ip_text} is a link local address. Skipping.")
             return False
 
         if ip_a.is_loopback is True:
-            log.debug(f"IP address {ip_text} is a loopback address. Skipping.")
+            logger.debug(f"IP address {ip_text} is a loopback address. Skipping.")
             return False
 
         for excluded_subnet in self.excluded_subnets:
@@ -113,5 +113,5 @@ class PermittedSubnets:
             if ip_a in permitted_subnet:
                 return True
 
-        log.debug(f"IP address {ip_text} not part of any permitted subnet. Skipping.")
+        logger.debug(f"IP address {ip_text} not part of any permitted subnet. Skipping.")
         return False

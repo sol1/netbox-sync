@@ -16,12 +16,12 @@ from module.common.config import CommonConfig
 from module.netbox.config import NetBoxConfig
 from module.sources.vmware.config import VMWareConfig
 from module.sources.check_redfish.config import CheckRedfishConfig
-from module.common.logging import get_logger
+from loguru import logger
 from module.config import default_config_file_path, source_config_section_name
 from module.config.files import ConfigFile, ConfigFileINI, ConfigFileYAML
 from module import __version__, __version_date__, __description__, __url__
 
-log = get_logger()
+
 
 
 class ConfigFileOutput(DescriptionFormatterMixin):
@@ -64,13 +64,13 @@ class ConfigFileOutput(DescriptionFormatterMixin):
             self.output_file = args.config_files[0]
 
         if os.path.exists(self.output_file):
-            log.error(f'ERROR: Config file "{self.output_file}" already present')
+            logger.error(f'ERROR: Config file "{self.output_file}" already present')
             exit(1)
 
         self.config_file_type = ConfigFile.get_file_type(self.output_file)
 
         if self.config_file_type is None:
-            log.error(f"ERROR: Unknown/Unsupported config file type "
+            logger.error(f"ERROR: Unknown/Unsupported config file type "
                       f"'{ConfigFile.get_suffix(self.output_file)}' for {self.output_file}")
             exit(1)
 
@@ -89,7 +89,7 @@ class ConfigFileOutput(DescriptionFormatterMixin):
             with open(self.output_file, "w") as fp:
                 fp.write('\n'.join(self.lines))
         except Exception as e:
-            log.error(f"Error: Unable to write to file '{self.output_file}': {e}")
+            logger.error(f"Error: Unable to write to file '{self.output_file}': {e}")
             exit(1)
 
         exit(0)
