@@ -91,7 +91,7 @@ def grab(structure=None, path=None, separator=".", fallback=None):
 
     return traverse(structure, path)
 
-
+# TODO: not called any more, possible clean up
 def dump(obj):
     """
     Dump content of a object to stdout

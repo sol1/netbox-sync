@@ -28,7 +28,7 @@ from pyVmomi.VmomiSupport import VmomiJSONEncoder
 from module.sources.common.source_base import SourceBase
 from module.sources.vmware.config import VMWareConfig
 from loguru import logger
-from module.common.misc import grab, dump, get_string_or_none, plural, quoted_split
+from module.common.misc import grab, get_string_or_none, plural, quoted_split
 from module.common.support import normalize_mac_address
 from module.netbox.inventory import NetBoxInventory
 from module.netbox import *
