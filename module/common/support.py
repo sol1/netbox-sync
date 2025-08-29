@@ -66,7 +66,7 @@ def perform_ptr_lookups(ips, dns_servers=None):
 
     if dns_servers is not None:
         if isinstance(dns_servers, list):
-            logger.trivial("using provided DNS servers to perform lookup: %s" % ", ".join(dns_servers))
+            logger.debug2("using provided DNS servers to perform lookup: %s" % ", ".join(dns_servers))
             resolver.nameservers = dns_servers
         else:
             logger.error(f"List of provided DNS servers invalid: {dns_servers}")
@@ -99,7 +99,7 @@ async def reverse_lookup(resolver, ip):
     resolved_name = None
     response = None
 
-    logger.trivial(f"Requesting PTR record: {ip}")
+    logger.debug2(f"Requesting PTR record: {ip}")
 
     try:
         response = await resolver.gethostbyaddr(ip)
@@ -111,7 +111,7 @@ async def reverse_lookup(resolver, ip):
         # validate record to check if this is a valid host name
         if all([bool(str(c).lower() in valid_hostname_characters) for c in response.name]):
             resolved_name = response.name.lower()
-            logger.trivial(f"PTR record for {ip}: {resolved_name}")
+            logger.debug2(f"PTR record for {ip}: {resolved_name}")
 
         else:
             logger.warning(f"PTR record contains invalid characters: {response.name}")

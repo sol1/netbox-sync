@@ -14,7 +14,7 @@ from typing import Dict
 import yaml
 
 from loguru import logger
-from module.common.misc import grab, do_error_exit
+from module.common.misc import grab
 from module.config import *
 from module.config.files import ConfigFile, ConfigFileINI, ConfigFileYAML
 
@@ -66,7 +66,8 @@ class ConfigParser:
             logger.warning(warning)
 
         if len(self.config_errors) > 0:
-            do_error_exit("Unable to open/parse one or more config files")
+            logger.debug("Unable to open/parse one or more config files")
+            exit(1)
 
     def _add_error(self, message: str = "") -> None:
 

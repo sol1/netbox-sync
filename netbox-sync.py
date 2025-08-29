@@ -15,9 +15,9 @@ Sync objects from various sources to NetBox
 
 from datetime import datetime
 
-from module.common.misc import grab, get_relative_time, do_error_exit
+from module.common.misc import grab, get_relative_time
 from module.common.cli_parser import parse_command_line
-from module.common.logging import setup_logging
+from module.common.logging import setup_logging, add_screen_log
 from module.netbox.connection import NetBoxHandler
 from module.netbox.inventory import NetBoxInventory
 from module.sources import instantiate_sources
@@ -30,6 +30,9 @@ from loguru import logger
 
 def main():
 
+    # Add screen logging for startup so we can see what is happening before standard logging is set up
+    logger.remove()
+    add_screen_log(log_level="DEBUG")
     start_time = datetime.now()
 
     # parse command line
@@ -49,8 +52,10 @@ def main():
     # cli option overwrites config file
     log_level = grab(args, "log_level", fallback=common_config.log_level)
 
+    # remove startup screen logger and replace with standard logging
+    logger.remove()
     # setup logging
-    setup_logging(log_level=log_level, enable_log_file=common_config.log_to_file, log_file=common_config.log_file, log_to_screen=True)
+    setup_logging(log_level=log_level, enable_log_file=common_config.log_to_file, log_file=common_config.log_file, log_to_screen=args.log_to_screen)
 
     # now we are ready to go
     logger.info(f"Starting {__description__} v{__version__} ({__version_date__})")
@@ -73,7 +78,8 @@ def main():
     if args.purge is True:
 
         if args.dry_run is True:
-            do_error_exit("Purge not available with option 'dry_run'")
+            logger.error("Purge not available with option 'dry_run'")
+            exit(1)
 
         nb_handler.just_delete_all_the_things()
 

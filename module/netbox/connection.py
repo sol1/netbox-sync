@@ -88,12 +88,14 @@ class NetBoxHandler:
         # check for minimum version
         api_version = self.get_api_version()
         if api_version == "None":
-            do_error_exit("Unable to determine NetBox version, "
+            logger.error("Unable to determine NetBox version, "
                           "HTTP header 'API-Version' missing.")
+            exit(1)
 
         if version.parse(api_version) < version.parse(self.minimum_api_version):
-            do_error_exit(f"NetBox API version '{api_version}' not supported. "
+            logger.error(f"NetBox API version '{api_version}' not supported. "
                           f"Minimum API version: {self.minimum_api_version}")
+            exit(1)
 
         self.inventory.netbox_api_version = api_version
 
@@ -202,7 +204,8 @@ class NetBoxHandler:
                 timeout=self.settings.timeout,
                 verify=self.settings.validate_tls_certs)
         except Exception as e:
-            do_error_exit(f"NetBox connection: {e}")
+            logger.error(f"NetBox connection: {e}")
+            exit(1)
 
         result = str(response.headers.get("API-Version"))
 
@@ -276,7 +279,7 @@ class NetBoxHandler:
             if this_request.method == "GET" and result is not None:
                 while response.json().get("next") is not None:
                     this_request.url = response.json().get("next")
-                    logger.trivial("NetBox results are paginated. Getting next page")
+                    logger.debug2("NetBox results are paginated. Getting next page")
 
                     response = self.single_request(this_request)
                     result["results"].extend(response.json().get("results"))
@@ -292,7 +295,7 @@ class NetBoxHandler:
             else:
                 object_name = result.get(object_class.primary_key)
 
-            logger.info(f"NetBox successfully {action} {object_class.name} object '{object_name}'.")
+            logger.success(f"NetBox successfully {action} {object_class.name} object '{object_name}'.")
 
             if response.status_code == 204:
                 result = True
@@ -300,18 +303,20 @@ class NetBoxHandler:
         # token issues
         elif response.status_code == 403:
 
-            do_error_exit("NetBox returned: %s: %s" % (response.reason, grab(result, "detail")))
+            logger.error(f"NetBox returned {response.status_code}: {response.reason}: {grab(result, "detail")}")
+            exit(1)
 
         # we screw up something else
         elif 400 <= response.status_code < 500:
 
-            logger.error(f"NetBox returned: {this_request.method} {this_request.path_url} {response.reason}")
+            logger.error(f"NetBox returned {response.status_code}: {this_request.method} {this_request.path_url} {response.reason}")
             logger.error(f"NetBox returned body: {result}")
             result = None
 
         elif response.status_code >= 500:
 
-            do_error_exit(f"NetBox returned: {response.status_code} {response.reason}")
+            logger.error(f"NetBox returned {response.status_code}: {response.reason}")
+            exit(1)
 
         return result
 
@@ -341,7 +346,7 @@ class NetBoxHandler:
             if this_request.body is not None:
                 log_message += f" with data '{this_request.body}'."
 
-                logger.trivial(log_message)
+                logger.debug2(log_message)
 
             try:
                 response = self.session.send(this_request,
@@ -354,7 +359,8 @@ class NetBoxHandler:
             else:
                 break
         else:
-            do_error_exit(f"Giving up after {self.settings.max_retry_attempts} retries.")
+            logger.error(f"Giving up after {self.settings.max_retry_attempts} retries.")
+            exit(1)
         logger.debug(f"Received HTTP Status {response.status_code}.")
 
         # print debugging information
@@ -481,7 +487,8 @@ class NetBoxHandler:
 
                 if full_nb_data.get("results") is None:
                     logger.error(f"Result data from NetBox for object {nb_object_class.__name__} missing!")
-                    do_error_exit("Reading data from NetBox failed.")
+                    logger.error("Reading data from NetBox failed.")
+                    exit(1)
 
             else:
 
@@ -499,7 +506,8 @@ class NetBoxHandler:
 
                 if brief_nb_data.get("results") is None or updated_nb_data.get("results") is None:
                     logger.error(f"Result data from NetBox for object {nb_object_class.__name__} missing!")
-                    do_error_exit("Reading data from NetBox failed.")
+                    logger.error("Reading data from NetBox failed.")
+                    exit(1)
 
             # read a full set from NetBox
             nb_objects = list()
@@ -632,7 +640,7 @@ class NetBoxHandler:
             # resolve dependencies
             for dependency in this_object.get_dependencies():
                 if dependency not in self.resolved_dependencies:
-                    logger.trivial("Resolving dependency: %s" % dependency.name)
+                    logger.debug2("Resolving dependency: %s" % dependency.name)
                     self.update_object(dependency)
 
             data_to_patch = dict()
@@ -696,7 +704,7 @@ class NetBoxHandler:
 
             # add unresolved dependencies back to object
             if len(unresolved_dependency_data.keys()) > 0:
-                logger.trivial("Adding unresolved dependencies back to object: %s" %
+                logger.debug2("Adding unresolved dependencies back to object: %s" %
                            list(unresolved_dependency_data.keys()))
                 this_object.update(data=unresolved_dependency_data)
 
@@ -788,7 +796,7 @@ class NetBoxHandler:
                     continue
 
                 if bool(set(this_object_tags).intersection(disabled_sources_tags)) is True:
-                    logger.trivial(f"Object '{this_object.get_display_name()}' was added "
+                    logger.debug2(f"Object '{this_object.get_display_name()}' was added "
                                f"from a currently disabled source. Skipping pruning.")
                     continue
 
@@ -799,7 +807,7 @@ class NetBoxHandler:
                 # only need the date including seconds
                 date_last_update = date_last_update[0:19]
 
-                logger.trivial(f"Object '{this_object.name}' '{this_object.get_display_name()}' is Orphaned. "
+                logger.debug2(f"Object '{this_object.name}' '{this_object.get_display_name()}' is Orphaned. "
                            f"Last time changed: {date_last_update}")
 
                 # check prune delay.

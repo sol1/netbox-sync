@@ -58,6 +58,9 @@ def parse_command_line(self_description=None):
                         help="Remove (almost) all synced objects which were create by this script. "
                              "This is helpful if you want to start fresh or stop using this script.")
 
+    parser.add_argument("-s", "--log_to_screen", action="store_true",
+                        help="Sends logging at the current log level to standard error. By default on ERROR and above are sent to standard error.")
+
     args = parser.parse_args()
 
     # fix supplied config file path
@@ -69,8 +72,6 @@ def parse_command_line(self_description=None):
         if config_file != default_config_file_path and not os.path.isabs(config_file):
             config_file = os.path.realpath(os.path.join(os.getcwd(), config_file))
         fixed_config_files.append(config_file)
-
-    args.config_files = fixed_config_files
 
     return args
 

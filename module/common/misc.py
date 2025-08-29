@@ -108,20 +108,6 @@ def dump(obj):
             print("obj.%s = %s" % (attr, getattr(obj, attr)))
 
 
-def do_error_exit(log_text):
-    """
-    log an error and exit with return code 1
-
-    Parameters
-    ----------
-    log_text : str
-        the text to log as error
-    """
-
-    print(f"ERROR: {log_text}", file=sys.stderr)
-    exit(1)
-
-
 def get_relative_time(delta):
     """
     https://stackoverflow.com/a/13756038

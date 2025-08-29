@@ -523,7 +523,7 @@ class NetBoxObject:
 
             if self.skip_object_if_mandatory_attr_is_missing is True:
                 device_url = data.get("url") or self.data.get('url')
-                logger.trivial(f"This '{self.name}' ({self.nb_id}) data structure does not contain "
+                logger.debug2(f"This '{self.name}' ({self.nb_id}) data structure does not contain "
                            f"the primary key '{self.primary_key}'. Skipping. Link: {device_url}")
             else:
                 logger.error(f"This '{self.name}' data structure does not contain "
@@ -548,7 +548,7 @@ class NetBoxObject:
         if display_name is None:
             display_name = self.get_display_name()
 
-        logger.trivial(f"Parsing '{self.name}' data structure: {display_name}")
+        logger.debug2(f"Parsing '{self.name}' data structure: {display_name}")
 
         parsed_data = dict()
         for key, value in data.items():
@@ -952,7 +952,7 @@ class NetBoxObject:
 
         """
         disable logging
-        logger.trivial(f"Compiling TAG list")
+        logger.debug2(f"Compiling TAG list")
         """
 
         new_tag_list = NBTagList()
@@ -1032,7 +1032,7 @@ class NetBoxObject:
         """
         disable logging
         action = "Adding" if remove is False else "Removing"
-        logger.trivial(f"{action} Tags: {tags}")
+        logger.debug2(f"{action} Tags: {tags}")
         """
 
         current_tags = grab(self, "data.tags", fallback=NBTagList())
@@ -1100,7 +1100,7 @@ class NetBoxObject:
         if not isinstance(vlans, list):
             raise ValueError("Value for vlans must be a list")
 
-        logger.trivial(f"Compiling VLAN list")
+        logger.debug2(f"Compiling VLAN list")
         new_vlan_list = NBVLANList()
 
         for vlan in vlans:
@@ -2066,7 +2066,7 @@ class NBInterface(NetBoxObject):
 
         # remove definition of interface type if a parent interface is set as it only supports virtual types
         if grab(self, "data.parent") is not None and data.get("type") is not None:
-            logger.trivial(f"{self.name} '{self.get_display_name()}' attribute 'parent' is set. "
+            logger.debug2(f"{self.name} '{self.get_display_name()}' attribute 'parent' is set. "
                        f"Removing type {data.get('type')} from update request")
             del data["type"]
 

@@ -120,7 +120,7 @@ class CheckRedfish(SourceBase):
             self.device_object = self.inventory.get_by_id(NBDevice, inventory_id)
 
             if self.device_object is not None:
-                logger.trivial("Found a matching %s object '%s' based on inventory id '%d'" %
+                logger.debug2("Found a matching %s object '%s' based on inventory id '%d'" %
                            (self.device_object.name,
                             self.device_object.get_display_name(including_second_key=True),
                             inventory_id))
@@ -138,7 +138,7 @@ class CheckRedfish(SourceBase):
                               f"serial '{device_serial}' in NetBox inventory from inventory file {filename}")
                     continue
                 else:
-                    logger.trivial("Found a matching %s object '%s' based on serial '%s'" %
+                    logger.debug2("Found a matching %s object '%s' based on serial '%s'" %
                                (self.device_object.name,
                                 self.device_object.get_display_name(including_second_key=True),
                                 device_serial))
@@ -960,10 +960,10 @@ class CheckRedfish(SourceBase):
 
             current_item = current_inventory_items.get(item.get("full_name"))
             if current_item is not None:
-                # logger.trivial(f"Found 1:1 name match for inventory item '{item.get('full_name')}'")
+                # logger.debug2(f"Found 1:1 name match for inventory item '{item.get('full_name')}'")
                 matched_inventory[current_item] = item
             else:
-                # logger.trivial(f"No current NetBox inventory item found for '{item.get('full_name')}'")
+                # logger.debug2(f"No current NetBox inventory item found for '{item.get('full_name')}'")
                 unmatched_inventory_items.append(item)
 
         # sort unmatched items by full_name

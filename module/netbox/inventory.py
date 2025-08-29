@@ -351,7 +351,7 @@ class NetBoxInventory:
                 else:
 
                     if bool(set(this_object_tags).intersection(disabled_sources_tags)) is True:
-                        logger.trivial(f"Object {this_object.__class__.name} '{this_object.get_display_name()}' was added "
+                        logger.debug2(f"Object {this_object.__class__.name} '{this_object.get_display_name()}' was added "
                                    f"from a currently disabled source. Skipping orphaned tagging.")
                         continue
 
@@ -381,7 +381,7 @@ class NetBoxInventory:
                             if netbox_handler.orphaned_tag in this_object.get_tags():
                                 this_object.remove_tags(netbox_handler.orphaned_tag)
 
-                            logger.trivial(f"{device_vm_object.name} '{device_vm_object.get_display_name()}' has IP "
+                            logger.debug2(f"{device_vm_object.name} '{device_vm_object.get_display_name()}' has IP "
                                        f"'{this_object.get_display_name()}' assigned but is in status "
                                        f"{grab(device_vm_object, 'data.status')}. "
                                        f"IP address will not marked as orphaned.")

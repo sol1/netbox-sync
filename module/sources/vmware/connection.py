@@ -466,7 +466,7 @@ class VMWareHandler(SourceBase):
         if object_type not in [NBCluster, NBDevice]:
             raise ValueError(f"Object must be a '{NBCluster.name}' or '{NBDevice.name}'.")
 
-        logger.trivial(f"Trying to find site name for {object_type.name} '{object_name}'")
+        logger.debug2(f"Trying to find site name for {object_type.name} '{object_name}'")
 
         # check if site was provided in config
         relation_name = "host_site_relation" if object_type == NBDevice else "cluster_site_relation"
@@ -476,7 +476,7 @@ class VMWareHandler(SourceBase):
         if object_type == NBDevice and site_name is None:
             site_name = self.get_site_name(NBCluster, cluster_name)
             if site_name is not None:
-                logger.trivial(f"Found a matching cluster site for {object_name}, using site '{site_name}'")
+                logger.debug2(f"Found a matching cluster site for {object_name}, using site '{site_name}'")
 
         # set default site name
         if site_name is None:
@@ -486,7 +486,7 @@ class VMWareHandler(SourceBase):
         # set the site for cluster to None if None-keyword ("<NONE>") is set via cluster_site_relation
         if object_type == NBCluster and site_name == "<NONE>":
             site_name = None
-            logger.trivial(f"Site relation for '{object_name}' set to None")
+            logger.debug2(f"Site relation for '{object_name}' set to None")
 
         return site_name
 
@@ -541,7 +541,7 @@ class VMWareHandler(SourceBase):
                 if not isinstance(matching_object, (NBDevice, NBVM)):
                     continue
 
-                logger.trivial("Found matching MAC '%s' on %s '%s'" %
+                logger.debug2("Found matching MAC '%s' on %s '%s'" %
                            (grab(interface, "data.mac_address"), object_type.name,
                             matching_object.get_display_name(including_second_key=True)))
 
@@ -555,14 +555,14 @@ class VMWareHandler(SourceBase):
 
         if num_devices_witch_matching_macs == 1 and isinstance(matching_object, (NBDevice, NBVM)):
 
-            logger.trivial("Found one %s '%s' based on MAC addresses and using it" %
+            logger.debug2("Found one %s '%s' based on MAC addresses and using it" %
                        (object_type.name, matching_object.get_display_name(including_second_key=True)))
 
             object_to_return = list(objects_with_matching_macs.keys())[0]
 
         elif num_devices_witch_matching_macs > 1:
 
-            logger.trivial(f"Found {num_devices_witch_matching_macs} {object_type.name}s with matching MAC addresses")
+            logger.debug2(f"Found {num_devices_witch_matching_macs} {object_type.name}s with matching MAC addresses")
 
             # now select the two top matches
             first_choice, second_choice = \
@@ -571,19 +571,19 @@ class VMWareHandler(SourceBase):
             first_choice_matches = objects_with_matching_macs.get(first_choice)
             second_choice_matches = objects_with_matching_macs.get(second_choice)
 
-            logger.trivial(f"The top candidate {first_choice.get_display_name()} with {first_choice_matches} matches")
-            logger.trivial(f"The second candidate {second_choice.get_display_name()} with {second_choice_matches} matches")
+            logger.debug2(f"The top candidate {first_choice.get_display_name()} with {first_choice_matches} matches")
+            logger.debug2(f"The second candidate {second_choice.get_display_name()} with {second_choice_matches} matches")
 
             # get ratio between
             matching_ration = first_choice_matches / second_choice_matches
 
             # only pick the first one if the ration exceeds 2
             if matching_ration >= 2.0:
-                logger.trivial(f"The matching ratio of {matching_ration} is high enough "
+                logger.debug2(f"The matching ratio of {matching_ration} is high enough "
                            f"to select {first_choice.get_display_name()} as desired {object_type.name}")
                 object_to_return = first_choice
             else:
-                logger.trivial("Both candidates have a similar amount of "
+                logger.debug2("Both candidates have a similar amount of "
                            "matching interface MAC addresses. Using NONE of them!")
 
         return object_to_return
@@ -639,12 +639,12 @@ class VMWareHandler(SourceBase):
         for device in self.inventory.get_all_items(object_type):
 
             if _matches_device_primary_ip(grab(device, "data.primary_ip4"), primary_ip4) is True:
-                logger.trivial(f"Found existing host '{device.get_display_name()}' "
+                logger.debug2(f"Found existing host '{device.get_display_name()}' "
                            f"based on the primary IPv4 '{primary_ip4}'")
                 return device
 
             if _matches_device_primary_ip(grab(device, "data.primary_ip6"), primary_ip6) is True:
-                logger.trivial(f"Found existing host '{device.get_display_name()}' "
+                logger.debug2(f"Found existing host '{device.get_display_name()}' "
                            f"based on the primary IPv6 '{primary_ip6}'")
                 return device
 
@@ -732,7 +732,7 @@ class VMWareHandler(SourceBase):
         if tag_source is None or self.tag_session is None:
             return tag_list
 
-        logger.trivial(f"Collecting tags for {obj.name}")
+        logger.debug2(f"Collecting tags for {obj.name}")
 
         if "object" in tag_source:
             tag_list.extend(self.get_vmware_object_tags(obj))
@@ -918,7 +918,7 @@ class VMWareHandler(SourceBase):
             match_found = False
             if object_regex.match(name):
                 resolved_name = single_relation.get("assigned_name")
-                logger.trivial(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) for {name}")
+                logger.debug2(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) for {name}")
                 resolved_list.append(resolved_name)
                 match_found = True
 
@@ -929,7 +929,7 @@ class VMWareHandler(SourceBase):
                 if object_regex.match(stripped_name):
 
                     resolved_name = single_relation.get("assigned_name")
-                    logger.trivial(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) "
+                    logger.debug2(f"Found a matching {relation} '{resolved_name}' ({object_regex.pattern}) "
                                f"for {stripped_name}")
                     resolved_list.append(resolved_name)
 
@@ -1026,18 +1026,18 @@ class VMWareHandler(SourceBase):
         logger.trace(f"disk_data: {disk_data}")
 
         # check existing Devices for matches
-        logger.trivial(f"Trying to find a {object_type.name} based on the collected name, cluster, IP and MAC addresses")
+        logger.debug2(f"Trying to find a {object_type.name} based on the collected name, cluster, IP and MAC addresses")
 
         device_vm_object = self.inventory.get_by_data(object_type, data=object_data)
 
         if device_vm_object is not None:
-            logger.trivial("Found a exact matching %s object: %s" %
+            logger.debug2("Found a exact matching %s object: %s" %
                        (object_type.name, device_vm_object.get_display_name(including_second_key=True)))
 
         # keep searching if no exact match was found
         else:
 
-            logger.trivial(f"No exact match found. Trying to find {object_type.name} based on MAC addresses")
+            logger.debug2(f"No exact match found. Trying to find {object_type.name} based on MAC addresses")
 
             # on VMs vnic data is used, on physical devices pnic data is used
             mac_source_data = vnic_data if object_type == NBVM else pnic_data
@@ -1051,29 +1051,29 @@ class VMWareHandler(SourceBase):
 
             if device_vm_object is None and object_data.get("serial") is not None and \
                     self.settings.match_host_by_serial is True:
-                logger.trivial(f"No match found. Trying to find {object_type.name} based on serial number")
+                logger.debug2(f"No match found. Trying to find {object_type.name} based on serial number")
 
                 device_vm_object = self.inventory.get_by_data(object_type, data={"serial": object_data.get("serial")})
 
             if device_vm_object is None and object_data.get("asset_tag") is not None:
-                logger.trivial(f"No match found. Trying to find {object_type.name} based on asset tag")
+                logger.debug2(f"No match found. Trying to find {object_type.name} based on asset tag")
 
                 device_vm_object = self.inventory.get_by_data(object_type,
                                                               data={"asset_tag": object_data.get("asset_tag")})
 
         # look for VMs with same serial
         if object_type == NBVM and device_vm_object is None and object_data.get("serial") is not None:
-            logger.trivial(f"No match found. Trying to find {object_type.name} based on serial number")
+            logger.debug2(f"No match found. Trying to find {object_type.name} based on serial number")
             device_vm_object = self.inventory.get_by_data(object_type, data={"serial": object_data.get("serial")})
 
         if device_vm_object is not None:
-            logger.trivial("Found a matching %s object: %s" %
+            logger.debug2("Found a matching %s object: %s" %
                        (object_type.name, device_vm_object.get_display_name(including_second_key=True)))
 
         # keep looking for devices with the same primary IP
         else:
 
-            logger.trivial(f"No match found. Trying to find {object_type.name} based on primary IP addresses")
+            logger.debug2(f"No match found. Trying to find {object_type.name} based on primary IP addresses")
 
             device_vm_object = self.get_object_based_on_primary_ip(object_type, p_ipv4, p_ipv6)
 
@@ -1399,7 +1399,7 @@ class VMWareHandler(SourceBase):
             data["tags"] = cluster_tags
 
         # try to find cluster including cluster group
-        logger.trivial("Trying to find a matching existing cluster")
+        logger.debug2("Trying to find a matching existing cluster")
         cluster_object = None
         fallback_cluster_object = None
         for cluster_candidate in self.inventory.get_all_items(NBCluster):
@@ -1409,20 +1409,20 @@ class VMWareHandler(SourceBase):
             # try to find a cluster with matching site
             if cluster_candidate.get_site_name() == site_name:
                 cluster_object = cluster_candidate
-                logger.trivial("Found an existing cluster where 'name' and 'site' are matching")
+                logger.debug2("Found an existing cluster where 'name' and 'site' are matching")
                 break
 
             if grab(cluster_candidate, "data.group") is not None and \
                     grab(cluster_candidate, "data.group.data.name") == group_name:
                 cluster_object = cluster_candidate
-                logger.trivial("Found an existing cluster where 'name' and 'cluster group' are matching")
+                logger.debug2("Found an existing cluster where 'name' and 'cluster group' are matching")
                 break
 
             if grab(cluster_candidate, "data.tenant") is not None and \
                     tenant_name is not None and \
                     grab(cluster_candidate, "data.tenant.data.name") == tenant_name:
                 cluster_object = cluster_candidate
-                logger.trivial("Found an existing cluster where 'name' and 'tenant' are matching")
+                logger.debug2("Found an existing cluster where 'name' and 'tenant' are matching")
                 break
 
             # if only the name matches and there are multiple cluster with the same name we choose the first
@@ -1432,7 +1432,7 @@ class VMWareHandler(SourceBase):
                 fallback_cluster_object = cluster_candidate
 
         if cluster_object is None and fallback_cluster_object is not None:
-            logger.trivial(f"Found an existing cluster where 'name' "
+            logger.debug2(f"Found an existing cluster where 'name' "
                        f"matches (NetBox id: {fallback_cluster_object.get_nb_reference()})")
             cluster_object = fallback_cluster_object
 
@@ -1469,7 +1469,7 @@ class VMWareHandler(SourceBase):
         criteria = vim.dvs.PortCriteria()
         ports = obj.FetchDVPorts(criteria)
 
-        logger.trivial(f"Found {len(ports)} vCenter virtual switch ports")
+        logger.debug2(f"Found {len(ports)} vCenter virtual switch ports")
 
         for port in ports:
             self.network_data["dpgroup_ports"][uuid][port.key] = port
@@ -1645,7 +1645,7 @@ class VMWareHandler(SourceBase):
 
         for serial_num_key in ["SerialNumberTag", "ServiceTag", "EnclosureSerialNumberTag"]:
             if serial_num_key in identifier_dict.keys() and self.settings.collect_hardware_serial is True:
-                logger.trivial(f"Found {serial_num_key}: {get_string_or_none(identifier_dict.get(serial_num_key))}")
+                logger.debug2(f"Found {serial_num_key}: {get_string_or_none(identifier_dict.get(serial_num_key))}")
                 if serial is None:
                     serial = get_string_or_none(identifier_dict.get(serial_num_key))
 
@@ -1712,7 +1712,7 @@ class VMWareHandler(SourceBase):
 
             if vswitch_name is not None:
 
-                logger.trivial(f"Found host vSwitch {vswitch_name}")
+                logger.debug2(f"Found host vSwitch {vswitch_name}")
 
                 self.network_data["vswitch"][name][vswitch_name] = {
                     "mtu": grab(vswitch, "mtu"),
@@ -1730,7 +1730,7 @@ class VMWareHandler(SourceBase):
 
             if pswitch_uuid is not None:
 
-                logger.trivial(f"Found host proxySwitch {pswitch_name}")
+                logger.debug2(f"Found host proxySwitch {pswitch_name}")
 
                 self.network_data["pswitch"][name][pswitch_uuid] = {
                     "name": pswitch_name,
@@ -1746,7 +1746,7 @@ class VMWareHandler(SourceBase):
 
             if pgroup_name is not None:
 
-                logger.trivial(f"Found host portGroup {pgroup_name}")
+                logger.debug2(f"Found host portGroup {pgroup_name}")
 
                 nic_order = grab(pgroup, "computedPolicy.nicTeaming.nicOrder")
                 pgroup_nics = list()
@@ -1776,7 +1776,7 @@ class VMWareHandler(SourceBase):
             pnic_name = grab(pnic, "device")
             pnic_key = grab(pnic, "key")
 
-            logger.trivial("Parsing {}: {}".format(grab(pnic, "_wsdlName"), pnic_name))
+            logger.debug2("Parsing {}: {}".format(grab(pnic, "_wsdlName"), pnic_name))
 
             pnic_link_speed = grab(pnic, "linkSpeed.speedMb")
             if pnic_link_speed is None:
@@ -1844,7 +1844,7 @@ class VMWareHandler(SourceBase):
 
             if self.settings.host_nic_exclude_by_mac_list is not None and \
                     pnic_mac_address in self.settings.host_nic_exclude_by_mac_list:
-                logger.trivial(f"Host NIC with MAC '{pnic_mac_address}' excluded from sync. Skipping")
+                logger.debug2(f"Host NIC with MAC '{pnic_mac_address}' excluded from sync. Skipping")
                 continue
 
             pnic_data = {
@@ -1912,7 +1912,7 @@ class VMWareHandler(SourceBase):
 
             vnic_name = grab(vnic, "device")
 
-            logger.trivial("Parsing {}: {}".format(grab(vnic, "_wsdlName"), vnic_name))
+            logger.debug2("Parsing {}: {}".format(grab(vnic, "_wsdlName"), vnic_name))
 
             vnic_portgroup = grab(vnic, "portgroup")
             vnic_portgroup_data = self.network_data["host_pgroup"][name].get(vnic_portgroup)
@@ -2103,17 +2103,17 @@ class VMWareHandler(SourceBase):
         # check if vm is template
         template = grab(obj, "config.template")
         if bool(self.settings.skip_vm_templates) is True and template is True:
-            logger.trivial(f"VM '{name}' is a template. Skipping")
+            logger.debug2(f"VM '{name}' is a template. Skipping")
             return
 
         if bool(self.settings.skip_srm_placeholder_vms) is True \
                 and f"{grab(obj, 'config.managedBy.extensionKey')}".startswith("com.vmware.vcDr"):
-            logger.trivial(f"VM '{name}' is a SRM placeholder VM. Skipping")
+            logger.debug2(f"VM '{name}' is a SRM placeholder VM. Skipping")
             return
 
         # ignore offline VMs during first run
         if self.parsing_vms_the_first_time is True and status == "offline":
-            logger.trivial(f"Ignoring {status} VM '{name}' on first run")
+            logger.debug2(f"Ignoring {status} VM '{name}' on first run")
             return
 
         # add to processed VMs
@@ -2277,10 +2277,10 @@ class VMWareHandler(SourceBase):
                     continue
 
                 if ip_a.version == 4 and gateway_ip_address is not None:
-                    logger.trivial(f"Found default IPv4 gateway {gateway_ip_address}")
+                    logger.debug2(f"Found default IPv4 gateway {gateway_ip_address}")
                     vm_default_gateway_ip4 = gateway_ip_address
                 elif ip_a.version == 6 and gateway_ip_address is not None:
-                    logger.trivial(f"Found default IPv6 gateway {gateway_ip_address}")
+                    logger.debug2(f"Found default IPv6 gateway {gateway_ip_address}")
                     vm_default_gateway_ip6 = gateway_ip_address
 
         nic_data = dict()
@@ -2342,7 +2342,7 @@ class VMWareHandler(SourceBase):
 
             device_class = grab(vm_device, "_wsdlName")
 
-            logger.trivial(f"Parsing device {device_class}: {int_mac}")
+            logger.debug2(f"Parsing device {device_class}: {int_mac}")
 
             device_backing = grab(vm_device, "backing")
 
@@ -2518,7 +2518,7 @@ class VMWareHandler(SourceBase):
 
                 int_full_name = "vNIC Dummy-{}".format("".join(guest_nic_mac.split(":")[-2:]))
 
-                logger.trivial(f"Parsing dummy network device: {guest_nic_mac}")
+                logger.debug2(f"Parsing dummy network device: {guest_nic_mac}")
 
                 if nic_ips.get(int_full_name) is None:
                     nic_ips[int_full_name] = list()

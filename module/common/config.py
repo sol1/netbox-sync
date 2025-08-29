@@ -36,6 +36,7 @@ class CommonConfig(ConfigBase):
                            DEBUG2:     Will also log information about how/why data is parsed or skipped.
                            DEBUG3:     Logs all source and NetBox queries/results to stdout. Very useful for
                                        troubleshooting, but will log any sensitive data contained within a query.
+                           TRACE:      Same as DEBUG3.
                          """,
                          default_value="INFO"),
 
