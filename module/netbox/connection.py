@@ -19,7 +19,7 @@ import requests
 from packaging import version
 
 from loguru import logger
-from module.common.misc import grab, do_error_exit, plural
+from module.common.misc import grab, plural
 from module.netbox import *
 from module.netbox.inventory import NetBoxInventory
 from module.netbox.config import NetBoxConfig
