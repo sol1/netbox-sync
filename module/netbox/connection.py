@@ -10,7 +10,6 @@
 import json
 import os
 import pickle
-import pprint
 from datetime import datetime
 from http.client import HTTPConnection
 

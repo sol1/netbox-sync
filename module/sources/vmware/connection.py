@@ -8,7 +8,6 @@
 #  repository or visit: <https://opensource.org/licenses/MIT>.
 
 import datetime
-import pprint
 import ssl
 from ipaddress import ip_address, ip_interface
 from urllib.parse import unquote
