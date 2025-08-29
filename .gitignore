@@ -15,9 +15,33 @@ __pycache__
 
 # log dir
 log/*
+# log files
+*.log
 
-# chache files
+# cache files
 cache/*
 
-# settings file
-settings.ini
+# Ignore all .ini files...
+*.ini
+
+# ...but do not ignore the settings example
+!settings-example.ini
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+virtualenv/
+.venv*/
+.venv-*/
+venv*/
+venv-*/
+env*/
+env-*/
+ENV/
+
+# IDE/project files
+.vscode/
+.idea/
+*.swp
