@@ -302,7 +302,7 @@ class NetBoxHandler:
         # token issues
         elif response.status_code == 403:
 
-            logger.error(f"NetBox returned {response.status_code}: {response.reason}: {grab(result, "detail")}")
+            logger.error(f"NetBox returned {response.status_code}: {response.reason}: {grab(result, 'detail')}")
             exit(1)
 
         # we screw up something else
