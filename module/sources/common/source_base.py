@@ -898,7 +898,7 @@ class SourceBase:
         elif isinstance(vlan_object_by_group, NetBoxObject):
             return_data = vlan_object_by_group
             vlan_group_object = grab(vlan_object_by_group, "data.group")
-            vlan_group_object_scope_object = grab(vlan_object_by_group, "data.scope_id")
+            vlan_group_object_scope_object = grab(vlan_object_by_group, "data.site")
             scope_details = ""
             if vlan_group_object_scope_object is not None:
                 scope_details = (f" ({vlan_group_object_scope_object.name} "
