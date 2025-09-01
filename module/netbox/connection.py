@@ -197,16 +197,30 @@ class NetBoxHandler:
         str: NetBox API version
         """
         response = None
+        result = None
+
         try:
             response = self.session.get(
-                self.url,
+                f"{self.url}/status",
                 timeout=self.settings.timeout,
                 verify=self.settings.validate_tls_certs)
         except Exception as e:
             logger.error(f"NetBox connection: {e}")
             exit(1)
 
-        result = str(response.headers.get("API-Version"))
+        # noinspection PyBroadException
+        try:
+            result = grab(response.json(), "netbox-version").split("-")[0]
+        except Exception:
+            pass
+
+        if not isinstance(result, str):
+            result = str(response.headers.get("API-Version"))
+
+        try:
+            version.parse(result)
+        except Exception as e:
+            do_error_exit(f"Unable to parse NetBox version '{result}': {e}")
 
         logger.info(f"Successfully connected to NetBox '{self.settings.host_fqdn}'")
         logger.debug(f"Detected NetBox API version: {result}")
