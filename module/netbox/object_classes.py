@@ -1895,7 +1895,7 @@ class NBCluster(NetBoxObject):
         super().update(data=data, read_from_netbox=read_from_netbox, source=source)
 
     def resolve_relations(self):
-        log.debug2(f"Resolving relations for {self.name} '{self.get_display_name()}'")
+        logger.debug2(f"Resolving relations for {self.name} '{self.get_display_name()}'")
         super().resolve_relations()
 
 
