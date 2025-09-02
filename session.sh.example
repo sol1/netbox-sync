@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source .venv/bin/activate
+
+# Add the run command for here for your sync then call this script with cron
