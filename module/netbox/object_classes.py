@@ -1494,7 +1494,7 @@ class NBVLAN(NetBoxObject):
     api_path = "ipam/vlans"
     object_type = "ipam.vlan"
     primary_key = "vid"
-    secondary_key = "name"
+    secondary_key = "group"
     enforce_secondary_key = True
     prune = False
 
