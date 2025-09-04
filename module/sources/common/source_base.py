@@ -876,7 +876,6 @@ class SourceBase:
                 continue
 
             if grab(vlan, "data.name") != vlan_data.get("name"):
-                log.debug(f"the names are: {grab(vlan, "data.name")} and {vlan_data.get("name")}")
                 continue
 
             # try finding matching VLAN by site
@@ -918,7 +917,7 @@ class SourceBase:
                        vlan_object_global.get_display_name(including_second_key=True))
 
         else:
-            log.debug2("No matching existing VLAN found for this VLAN ID.")
+            log.debug2("No matching existing VLAN found for this VLAN ID. Creating a new one.")
             self.inventory.add_object(object_type=NBVLAN, data=vlan_data, read_from_netbox=False, source=self)
 
         return return_data
