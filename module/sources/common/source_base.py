@@ -875,6 +875,10 @@ class SourceBase:
             if grab(vlan, "data.vid") != vlan_data.get("vid"):
                 continue
 
+            if grab(vlan, "data.name") != vlan_data.get("name"):
+                log.debug(f"the names are: {grab(vlan, "data.name")} and {vlan_data.get("name")}")
+                continue
+
             # try finding matching VLAN by site
             if vlan_site is not None and grab(vlan, "data.site") == vlan_site:
                 vlan_object_by_site = vlan
@@ -915,6 +919,7 @@ class SourceBase:
 
         else:
             log.debug2("No matching existing VLAN found for this VLAN ID.")
+            self.inventory.add_object(object_type=NBVLAN, data=vlan_data, read_from_netbox=False, source=self)
 
         return return_data
 
