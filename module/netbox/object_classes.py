@@ -2361,6 +2361,18 @@ class NBModuleType(NetBoxObject):
     object_type = "dcim.moduletype"
     primary_key = "model"
     secondary_key = "manufacturer"
+    enforce_secondary_key = True
+
+    def __init__(self, *args, **kwargs):
+        self.data_model = {
+            "manufacturer": NBManufacturer,
+            "model": str,
+            "part_number": 50,
+            "description": 200,
+            "tags": NBTagList,
+            "custom_fields": NBCustomField
+        }
+        super().__init__(*args, **kwargs)
 
 
 class NBModule(NetBoxObject):
