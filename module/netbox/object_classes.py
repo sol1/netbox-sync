@@ -2332,6 +2332,58 @@ class NBFHRPGroupItem(NetBoxObject):
         super().__init__(*args, **kwargs)
 
 
+class NBModuleBay(NetBoxObject):
+    name = "module bay"
+    api_path = "dcim/module-bays"
+    object_type = "dcim.modulebay"
+    primary_key = "name"
+    secondary_key = "installed_module"
+    include_secondary_key_if_present = True
+
+    def __init__(self, *args, **kwargs):
+        self.data_model = {
+            "device": NBDevice,
+            "module": NBModule,
+            "name": 64,
+            "installed_module": NBModule,
+            "label": 64,
+            "position": 50,
+            "description": 200,
+            "tags": NBTagList,
+            "custom_fields": NBCustomField
+        }
+        super().__init__(*args, **kwargs)
+
+
+class NBModuleType(NetBoxObject):
+    name = "module type"
+    api_path = "dcim/module_types"
+    object_type = "dcim.moduletype"
+    primary_key = "model"
+    secondary_key = "manufacturer"
+
+
+class NBModule(NetBoxObject):
+    name = "module"
+    api_path = "dcim/modules"
+    object_type = "dcim.module"
+    primary_key = "module_bay"
+    prune = True
+
+    def __init__(self, *args, **kwargs):
+        self.data_model = {
+            "device": NBDevice,
+            "module_bay": NBModuleBay,
+            "module_type": NBModuleType,
+            "serial": 50,
+            "asset_tag": 50,
+            "description": 200,
+            "tags": NBTagList,
+            "custom_fields": NBCustomField
+        }
+        super().__init__(*args, **kwargs)
+
+
 class NBInventoryItem(NetBoxObject):
     name = "inventory item"
     api_path = "dcim/inventory-items"
