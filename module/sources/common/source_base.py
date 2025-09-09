@@ -886,8 +886,8 @@ class SourceBase:
                 if vlan_group.matches_site_cluster(vlan_site, vlan_cluster):
                     vlan_object_by_group = vlan
                     break
-            
-            if grab(vlan, "data.site") == None and grab(vlan, "data.group") is None:
+
+            if grab(vlan, "data.site") is None and grab(vlan, "data.group") is None:
                 vlan_object_global = vlan
 
         if isinstance(vlan_object_by_site, NetBoxObject):
