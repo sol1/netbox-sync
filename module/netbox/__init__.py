@@ -37,6 +37,9 @@ from module.netbox.object_classes import (
     NBIPAddress,
     NBMACAddress,
     NBFHRPGroupItem,
+    NBModuleBay,
+    NBModuleType,
+    NBModule,
     NBInventoryItem,
     NBPowerPort
 )

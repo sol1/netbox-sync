@@ -53,6 +53,9 @@ class CheckRedfish(SourceBase):
         NBVLAN,
         NBVLANGroup,
         NBPowerPort,
+        NBModuleBay,
+        NBModuleType,
+        NBModule,
         NBInventoryItem,
         NBCustomField
     ]
