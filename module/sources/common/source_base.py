@@ -875,9 +875,6 @@ class SourceBase:
             if grab(vlan, "data.vid") != vlan_data.get("vid"):
                 continue
 
-            if grab(vlan, "data.name") != vlan_data.get("name"):
-                continue
-
             # try finding matching VLAN by site
             if vlan_site is not None and grab(vlan, "data.site") == vlan_site:
                 vlan_object_by_site = vlan
@@ -890,8 +887,7 @@ class SourceBase:
                     vlan_object_by_group = vlan
                     break
             
-            # try to find a matching global VLAN if the site and group are none
-            if grab(vlan, "data.site") == vlan_data.get("site") and grab(vlan, "data.group") is None:
+            if grab(vlan, "data.site") == None and grab(vlan, "data.group") is None:
                 vlan_object_global = vlan
 
         if isinstance(vlan_object_by_site, NetBoxObject):
@@ -917,8 +913,7 @@ class SourceBase:
                        vlan_object_global.get_display_name(including_second_key=True))
 
         else:
-            log.debug2("No matching existing VLAN found for this VLAN ID. Creating a new one.")
-            self.inventory.add_object(object_type=NBVLAN, data=vlan_data, read_from_netbox=False, source=self)
+            log.debug2("No matching existing VLAN found for this VLAN ID.")
 
         return return_data
 
