@@ -58,6 +58,9 @@ class NetBoxHandler:
     # keep track of already resolved dependencies
     resolved_dependencies = set()
 
+    # keep track of currently resolving dependencies - prevents looping when two classes depend on each other
+    resolving_dependencies = set()
+
     def __init__(self):
 
         self.settings = NetBoxConfig().parse()
@@ -636,8 +639,11 @@ class NetBoxHandler:
             # resolve dependencies
             for dependency in this_object.get_dependencies():
                 if dependency not in self.resolved_dependencies:
-                    log.debug2("Resolving dependency: %s" % dependency.name)
-                    self.update_object(dependency)
+                    if dependency not in self.resolving_dependencies:
+                        self.resolving_dependencies.add(dependency)
+                        log.debug2("Resolving dependency: %s" % dependency.name)
+                        self.update_object(dependency)
+                        self.resolving_dependencies.remove(dependency)
 
             data_to_patch = dict()
             unresolved_dependency_data = dict()
