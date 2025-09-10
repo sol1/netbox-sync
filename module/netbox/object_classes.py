@@ -2339,7 +2339,7 @@ class NBModuleBay(NetBoxObject):
     primary_key = "name"
     secondary_key = "installed_module"
     include_secondary_key_if_present = True
-    prune = True
+    prune = False
 
     def __init__(self, *args, **kwargs):
         self.data_model = {
@@ -2363,7 +2363,7 @@ class NBModuleType(NetBoxObject):
     primary_key = "model"
     secondary_key = "manufacturer"
     enforce_secondary_key = True
-    prune = True
+    prune = False
 
     def __init__(self, *args, **kwargs):
         self.data_model = {
@@ -2383,7 +2383,7 @@ class NBModule(NetBoxObject):
     api_path = "dcim/modules"
     object_type = "dcim.module"
     primary_key = "module_bay"
-    prune = True
+    prune = False
 
     def __init__(self, *args, **kwargs):
         self.data_model = {
