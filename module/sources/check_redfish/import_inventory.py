@@ -1054,9 +1054,9 @@ class CheckRedfish(SourceBase):
             "custom_fields": {
                 "firmware": uncompiled_module_data.get("firmware"),
                 "health": uncompiled_module_data.get("health"),
-                "inventory_type": uncompiled_module_data.get("inventory_type"),
-                "inventory_size": uncompiled_module_data.get("size"),
-                "inventory_speed": uncompiled_module_data.get("speed")
+                "module_type": uncompiled_module_data.get("module_type"),
+                "size": uncompiled_module_data.get("size"),
+                "speed": uncompiled_module_data.get("speed")
             }
         }
 
