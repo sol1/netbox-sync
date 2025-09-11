@@ -644,6 +644,9 @@ class NetBoxHandler:
                         log.debug2("Resolving dependency: %s" % dependency.name)
                         self.update_object(dependency)
                         self.resolving_dependencies.remove(dependency)
+                    else:
+                        log.debug2(f"Already resolving dependency '{dependency.name}'. Continuing.")
+                        continue
 
             data_to_patch = dict()
             unresolved_dependency_data = dict()

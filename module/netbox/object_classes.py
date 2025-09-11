@@ -2383,7 +2383,7 @@ class NBModule(NetBoxObject):
     api_path = "dcim/modules"
     object_type = "dcim.module"
     primary_key = "module_bay"
-    prune = False
+    prune = True
 
     def __init__(self, *args, **kwargs):
         self.data_model = {
