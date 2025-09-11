@@ -949,14 +949,26 @@ class CheckRedfish(SourceBase):
 
                 current_inventory_items[grab(item, "data.name")] = item
 
+        # module section - WIP
+        current_modules = dict()
+        for module in self.inventory.get_all_items(NBModule):
+            if grab(module, "data.device") == self.device_object:
+                current_modules[grab(module, "data.name")] = module
+
         # sort items by display name
         current_inventory_items = dict(sorted(current_inventory_items.items()))
+
+        # sort modules by display name
+        current_modules = dict(sorted(current_modules.items()))
 
         # dict
         #   key: NB inventory object
         #   value: parsed data matching the exact name
         matched_inventory = dict()
         unmatched_inventory_items = list()
+
+        matched_modules = dict()
+        unmatched_modules = list()
 
         # try to match names to existing inventory
         for item in items:
@@ -969,8 +981,17 @@ class CheckRedfish(SourceBase):
                 # log.debug2(f"No current NetBox inventory item found for '{item.get('full_name')}'")
                 unmatched_inventory_items.append(item)
 
+            current_module = current_modules.get(item.get("full_name"))
+            if current_module is not None:
+                matched_modules[current_module] = item
+            else:
+                unmatched_modules.append(item)
+
         # sort unmatched items by full_name
         unmatched_inventory_items.sort(key=lambda x: x.get("full_name") or "")
+
+        # sort unmatched modules
+        unmatched_modules.sort(key=lambda x: x.get("full_name") or "")
 
         # iterate over current NetBox inventory items
         # if name did not match try to assign unmatched items in alphabetical order
@@ -984,13 +1005,25 @@ class CheckRedfish(SourceBase):
                 elif grab(nb_inventory_item, "data.custom_fields.health") != "Absent":
                     nb_inventory_item.update(data={"custom_fields": {"health": "Absent"}}, source=self)
 
+        for nb_module in current_modules.values():
+
+            if nb_module not in matched_modules.keys():
+                if len(unmatched_modules) > 0:
+                    matched_modules[nb_module] = unmatched_modules.pop(0)
+
         # update items with matching NetBox inventory item
         for inventory_object, inventory_data in matched_inventory.items():
             self.update_item(inventory_data, inventory_object)
 
+        for module_object, module_data in matched_modules.items():
+            self.update_item(module_data, module_object)
+
         # create new inventory item in NetBox
         for unmatched_inventory_item in unmatched_inventory_items:
             self.update_item(unmatched_inventory_item)
+
+        for unmatched_module in unmatched_modules:
+            self.update_item(unmatched_modules)
 
     def update_item(self, item_data: dict, inventory_object: NBInventoryItem = None):
         """
