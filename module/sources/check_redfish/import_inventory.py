@@ -990,7 +990,7 @@ class CheckRedfish(SourceBase):
         # sort unmatched items by full_name
         unmatched_inventory_items.sort(key=lambda x: x.get("full_name") or "")
 
-        # sort unmatched modules
+        # sort unmatched modules by full name
         unmatched_modules.sort(key=lambda x: x.get("full_name") or "")
 
         # iterate over current NetBox inventory items
@@ -1016,14 +1016,70 @@ class CheckRedfish(SourceBase):
             self.update_item(inventory_data, inventory_object)
 
         for module_object, module_data in matched_modules.items():
-            self.update_item(module_data, module_object)
+            self.update_module(module_data, module_object)
 
         # create new inventory item in NetBox
         for unmatched_inventory_item in unmatched_inventory_items:
             self.update_item(unmatched_inventory_item)
 
         for unmatched_module in unmatched_modules:
-            self.update_item(unmatched_modules)
+            self.update_module(unmatched_module)
+
+    def update_module(self, uncompiled_module_data: dict, module_object: NBModule = None):
+        """
+        Updates a single module with the supplied data.
+        If no module is provided a new one will be created.
+
+        Parameters
+        ----------
+        module_data: dict
+            a dict with data for module to update
+        module_object: NBModule, None
+            the NetBox module to update.
+
+        Returns
+        -------
+        None
+        """
+
+        module_bay = grab(uncompiled_module_data, "module_bay")
+        module_type = grab(uncompiled_module_data, "module_type")
+        serial = uncompiled_module_data.get("serial")
+        description = uncompiled_module_data.get("description")
+        status = uncompiled_module_data.get("status")
+
+        # compile module data
+        compiled_module_data = {
+            "device": self.device_object,
+            "custom_fields": {
+                "firmware": uncompiled_module_data.get("firmware"),
+                "health": uncompiled_module_data.get("health"),
+                "inventory_type": uncompiled_module_data.get("inventory_type"),
+                "inventory_size": uncompiled_module_data.get("size"),
+                "inventory_speed": uncompiled_module_data.get("speed")
+            }
+        }
+
+        if isinstance(description, list):
+            description = ", ".join(description)
+
+        if description is not None and len(description) > 0:
+            compiled_module_data["description"] = description
+        if serial is not None:
+            compiled_module_data["serial"] = serial
+        if module_type is not None:
+            compiled_module_data["module_type"] = module_type
+        if module_bay is not None:
+            compiled_module_data["module_bay"] = module_bay
+        if status is not None:
+            compiled_module_data["status"] = status
+
+        if module_object is None:
+            self.inventory.add_object(NBModule, data=compiled_module_data, source=self)
+        else:
+            module_object.update(data=compiled_module_data, source=self)
+
+        return
 
     def update_item(self, item_data: dict, inventory_object: NBInventoryItem = None):
         """

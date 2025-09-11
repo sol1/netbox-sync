@@ -2392,6 +2392,7 @@ class NBModule(NetBoxObject):
             "module_bay": NBModuleBay,
             "module_type": NBModuleType,
             "serial": 50,
+            "status": ["active", "offline"],
             "asset_tag": 50,
             "description": 200,
             "tags": NBTagList,
