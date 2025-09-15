@@ -1281,8 +1281,7 @@ class NBCustomField(NetBoxObject):
             NBPowerPort.object_type,
             NBClusterGroup.object_type,
             NBVMInterface.object_type,
-            NBVM.object_type,
-            NBModule.object_type
+            NBVM.object_type
         ]
 
         self.data_model = {
