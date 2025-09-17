@@ -158,6 +158,7 @@ class CheckRedfish(SourceBase):
             self.update_storage_enclosure()
             self.update_network_adapter()
             self.update_network_interface()
+            self.update_module_before()
 
     def reset_inventory_state(self):
         """
@@ -913,6 +914,45 @@ class CheckRedfish(SourceBase):
 
         self.update_all_items(items)
 
+    def update_module_before(self):
+
+        module_items = list()
+        for category_name, category_items in self.inventory_file_content.get("inventory", {}).items():
+
+            if not isinstance(category_items, list):
+                log.warning(f"Category items are not a list, '{type(category_items)}' was found")
+                continue
+
+            for item in category_items:
+                if grab(item, "operation_status") in ["NotPresent", "Absent"]:
+                    continue
+                log.debug(f"The module bay id is: '{item.get("bay")}' for module '{item.get("name")}' with serial {item.get("serial")}")
+                bay = grab(item, "bay")
+                try:
+                    bay_id = int(bay) if bay is not None else None
+                except ValueError:
+                    log.warning(f"Invalid bay for module {grab(item, 'name')}, setting to None.")
+                    bay_id = None
+
+                if bay_id is None:
+                    log.warning(f"The module bay id is None. Cannot create module item '{grab(item, "name")}'")
+                    continue
+
+                module_items.append({
+                    "id": grab(item, "id"),
+                    "module_type": grab(item, "type") or category_name,
+                    "module_bay": bay_id,
+                    "serial": grab(item, "serial"),
+                    "full_name": grab(item, "name") or f"{category_name} {bay}",
+                    "custom_fields": {
+                        "firmware": grab(item, "firmware"),
+                        "size": grab(item, "capacity_in_watt") or grab(item, "size"),
+                        "health": grab(item, "health_status")
+                    }
+            })
+
+        self.update_all_modules(module_items)
+
     def update_all_items(self, items):
         """
         Updates all inventory items of a certain type. Both (current and supplied list of items) will
@@ -949,26 +989,14 @@ class CheckRedfish(SourceBase):
 
                 current_inventory_items[grab(item, "data.name")] = item
 
-        # module section - WIP
-        current_modules = dict()
-        for module in self.inventory.get_all_items(NBModule):
-            if grab(module, "data.device") == self.device_object:
-                current_modules[grab(module, "data.name")] = module
-
         # sort items by display name
         current_inventory_items = dict(sorted(current_inventory_items.items()))
-
-        # sort modules by display name
-        current_modules = dict(sorted(current_modules.items()))
 
         # dict
         #   key: NB inventory object
         #   value: parsed data matching the exact name
         matched_inventory = dict()
         unmatched_inventory_items = list()
-
-        matched_modules = dict()
-        unmatched_modules = list()
 
         # try to match names to existing inventory
         for item in items:
@@ -981,17 +1009,8 @@ class CheckRedfish(SourceBase):
                 # log.debug2(f"No current NetBox inventory item found for '{item.get('full_name')}'")
                 unmatched_inventory_items.append(item)
 
-            current_module = current_modules.get(item.get("full_name"))
-            if current_module is not None:
-                matched_modules[current_module] = item
-            else:
-                unmatched_modules.append(item)
-
         # sort unmatched items by full_name
         unmatched_inventory_items.sort(key=lambda x: x.get("full_name") or "")
-
-        # sort unmatched modules by full name
-        unmatched_modules.sort(key=lambda x: x.get("full_name") or "")
 
         # iterate over current NetBox inventory items
         # if name did not match try to assign unmatched items in alphabetical order
@@ -1005,27 +1024,72 @@ class CheckRedfish(SourceBase):
                 elif grab(nb_inventory_item, "data.custom_fields.health") != "Absent":
                     nb_inventory_item.update(data={"custom_fields": {"health": "Absent"}}, source=self)
 
+        # update items with matching NetBox inventory item
+        for inventory_object, inventory_data in matched_inventory.items():
+            self.update_item(inventory_data, inventory_object)
+
+        # create new inventory item in NetBox
+        for unmatched_inventory_item in unmatched_inventory_items:
+            self.update_item(unmatched_inventory_item)
+
+    def update_all_modules(self, modules):
+        """
+        Updates all modules. Both (current and supplied list of items) will
+        be sorted by name and matched 1:1.
+
+        Parameters
+        ----------
+        items: list
+            a list of modules to update
+
+        Returns
+        -------
+        None
+        """
+
+        if not isinstance(modules, list):
+            raise ValueError(f"Value for 'items' must be type 'list' got: {modules}")
+
+        if len(modules) == 0:
+            return
+
+        # collect all modules in the inventory into a dict
+        current_modules = dict()
+        for module in self.inventory.get_all_items(NBModule):
+            if grab(module, "data.device") == self.device_object:
+                current_modules[grab(module, "data.name")] = module
+
+        # sort modules by display name
+        current_modules = dict(sorted(current_modules.items()))
+
+        matched_modules = dict()
+        unmatched_modules = list()
+
+        # try to match names to existing inventory
+        for item in modules:
+            log.debug(f"item: '{item}'")
+            current_module = current_modules.get(item.get("full_name"))
+            if current_module is not None:
+                matched_modules[current_module] = item
+            else:
+                unmatched_modules.append(item)
+
+        # sort unmatched modules by full name
+        unmatched_modules.sort(key=lambda x: x.get("full_name") or "")
+
         for nb_module in current_modules.values():
 
             if nb_module not in matched_modules.keys():
                 if len(unmatched_modules) > 0:
                     matched_modules[nb_module] = unmatched_modules.pop(0)
 
-        # update items with matching NetBox inventory item
-        for inventory_object, inventory_data in matched_inventory.items():
-            self.update_item(inventory_data, inventory_object)
-
         for module_object, module_data in matched_modules.items():
-            self.update_module(module_data, module_object)
-
-        # create new inventory item in NetBox
-        for unmatched_inventory_item in unmatched_inventory_items:
-            self.update_item(unmatched_inventory_item)
+            self.update_module_after(module_data, module_object)
 
         for unmatched_module in unmatched_modules:
-            self.update_module(unmatched_module)
+            self.update_module_after(unmatched_module)
 
-    def update_module(self, uncompiled_module_data: dict, module_object: NBModule = None):
+    def update_module_after(self, uncompiled_module_data: dict, module_object: NBModule = None):
         """
         Updates a single module with the supplied data.
         If no module is provided a new one will be created.
@@ -1042,8 +1106,17 @@ class CheckRedfish(SourceBase):
         None
         """
 
-        module_bay = grab(uncompiled_module_data, "module_bay")
-        module_type = grab(uncompiled_module_data, "module_type")
+        module_bay_id = uncompiled_module_data.get("module_bay")
+        module_bay = None
+        if not isinstance(module_bay_id, int):
+            try:
+                module_bay_id = int(module_bay_id)
+            except:
+                log.warning(f"Module bay ID '{module_bay_id}' is not an int, found '{type(module_bay_id)}'. Cannot find module with data {uncompiled_module_data}")
+                return
+        module_bay = self.inventory.get_by_id(object_type=NBModuleBay, nb_id=module_bay_id)
+
+        module_type = uncompiled_module_data.get("type")
         serial = uncompiled_module_data.get("serial")
         description = uncompiled_module_data.get("description")
         status = uncompiled_module_data.get("status")

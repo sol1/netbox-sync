@@ -2337,16 +2337,16 @@ class NBModuleBay(NetBoxObject):
     api_path = "dcim/module-bays"
     object_type = "dcim.modulebay"
     primary_key = "name"
-    secondary_key = "installed_module"
+    secondary_key = "device"
     include_secondary_key_if_present = True
     prune = False
 
     def __init__(self, *args, **kwargs):
         self.data_model = {
             "device": NBDevice,
-            "module": NBModule,
+            # "module": NBModule, # not in use - caused recursion error
             "name": 64,
-            "installed_module": NBModule,
+            # "installed_module": NBModule, # ^
             "label": 64,
             "position": 50,
             "description": 200,
