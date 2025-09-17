@@ -2344,9 +2344,7 @@ class NBModuleBay(NetBoxObject):
     def __init__(self, *args, **kwargs):
         self.data_model = {
             "device": NBDevice,
-            # "module": NBModule, # not in use - caused recursion error
             "name": 64,
-            # "installed_module": NBModule, # ^
             "label": 64,
             "position": 50,
             "description": 200,
@@ -2360,9 +2358,9 @@ class NBModuleType(NetBoxObject):
     name = "module type"
     api_path = "dcim/module-types"
     object_type = "dcim.moduletype"
-    primary_key = "model"
-    secondary_key = "manufacturer"
-    enforce_secondary_key = True
+    primary_key = "manufacturer"
+    secondary_key = "model"
+    include_secondary_key_if_present = True
     prune = False
 
     def __init__(self, *args, **kwargs):
@@ -2400,7 +2398,7 @@ class NBModule(NetBoxObject):
         super().__init__(*args, **kwargs)
 
         # handle the module name separately, as it doesn't have a 'name' field
-    def get_display_name(self, data=None):
+    def get_display_name(self, data=None, including_second_key=False):
         try:
             data = dict(data)
         except:
