@@ -2399,6 +2399,29 @@ class NBModule(NetBoxObject):
         }
         super().__init__(*args, **kwargs)
 
+        # handle the module name separately, as it doesn't have a 'name' field
+    def get_display_name(self, data=None):
+        try:
+            data = dict(data)
+        except:
+            log.debug(f"Get display name data for module in bay {self.data.get("module_bay").data.get("name")} is not a dict, got {type(data)}")
+            data = dict()
+        
+        if data.get("module_bay") is None:
+            data["module_bay"] = self.data.get("module_bay").data.get("name")
+
+        if data.get("device") is None:
+            data["device_type"] = self.data.get("device").data.get("name")
+        else:
+            data["device_type"] = data.get("device").data.get("name")
+
+        module_bay = data.get("module_bay")
+        device_type = data.get("device_type")
+
+        myname = f"{module_bay}: {device_type}"
+
+        return myname
+
 
 class NBInventoryItem(NetBoxObject):
     name = "inventory item"
