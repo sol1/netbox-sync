@@ -2243,8 +2243,7 @@ class VMWareHandler(SourceBase):
         if not parent_host:
             logger.debug2(f"VM '{name}' has no resolved parent host")
         else:
-            _parent_host_name = grab(parent_host, "name", fallback="UNKNOWN")
-            logger.debug2(f"VM '{name}' is on parent '{_parent_host_name}'")
+            logger.debug2(f"VM '{name}' is on host '{grab(parent_host, 'name')}'")
         cluster_object = self.get_parent_object_by_class(parent_host, vim.ClusterComputeResource)
 
         # get single host 'cluster' if VM runs on one
@@ -2363,13 +2362,12 @@ class VMWareHandler(SourceBase):
         # Add adaption for change in NetBox 3.3.0 VM model
         # issue: https://github.com/netbox-community/netbox/issues/10131#issuecomment-1225783758
         if version.parse(self.inventory.netbox_api_version) >= version.parse("3.3.0"):
-            _netbox_api_version = version.parse(self.inventory.netbox_api_version)
-            logger.debug2(f"NetBox API version {_netbox_api_version}")
+            logger.debug2(f"NetBox API version: {self.inventory.netbox_api_version}")
             vm_data["site"] = {"name": site_name}
 
             if self.settings.track_vm_host:
                 logger.debug2(f"VM '{name}' parent host '{parent_name}' is being tracked")
-                vm_data["device"] = parent_name.split(".")[0]
+                vm_data["device"] = {'name' = parent_name}
                 logger.debug2(vm_data)
 
         # Add adaption for added virtual disks in NetBox 3.7.0
