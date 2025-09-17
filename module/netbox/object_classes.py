@@ -2409,6 +2409,8 @@ class NBModule(NetBoxObject):
         
         if data.get("module_bay") is None:
             data["module_bay"] = self.data.get("module_bay").data.get("name")
+        else:
+            data["module_bay"] = data.get("module_bay").data.get("name")
 
         if data.get("device") is None:
             data["device_type"] = self.data.get("device").data.get("name")

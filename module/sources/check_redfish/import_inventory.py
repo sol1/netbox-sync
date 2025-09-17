@@ -1067,7 +1067,7 @@ class CheckRedfish(SourceBase):
 
         # try to match names to existing inventory
         for item in modules:
-            log.debug(f"item: '{item}'")
+            
             current_module = current_modules.get(item.get("full_name"))
             if current_module is not None:
                 matched_modules[current_module] = item
