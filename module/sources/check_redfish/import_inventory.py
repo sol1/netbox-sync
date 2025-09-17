@@ -935,7 +935,7 @@ class CheckRedfish(SourceBase):
                     bay_id = None
 
                 if bay_id is None:
-                    log.warning(f"The module bay id is None. Cannot create module item '{grab(item, "name")}'")
+                    log.debug(f"The module bay id is None. Cannot create module item '{grab(item, "name")}'")
                     continue
 
                 module_items.append({
