@@ -919,16 +919,17 @@ class CheckRedfish(SourceBase):
         module_items = list()
         for category_name, category_items in self.inventory_file_content.get("inventory", {}).items():
 
-            if category_name in {"system", "power_control"}:
-                continue
             if not isinstance(category_items, list):
                 log.warning(f"Category items are not a list, '{type(category_items)}' was found")
                 continue
-
+            
+            if category_name in {"system", "power_control"}:
+                continue
+            
             for item in category_items:
                 if grab(item, "operation_status") in ["NotPresent", "Absent"]:
                     continue
-                log.debug(f"The module bay id is: '{item.get("bay")}' for module '{item.get("name")}' with serial {item.get("serial")}")
+
                 bay = grab(item, "bay")
                 try:
                     bay_id = int(bay) if bay is not None else None
@@ -1113,37 +1114,37 @@ class CheckRedfish(SourceBase):
 
         module_bay_id = uncompiled_module_data.get("module_bay")
         module_bay = None
+        
+        manufacturer_name = {"name": grab(uncompiled_module_data, "manufacturer")}
+        manufacturer = self.inventory.get_by_data(NBManufacturer, manufacturer_name)
 
         module_type_data = {
-            "manufacturer": grab(uncompiled_module_data, "manufacturer"),
-            "model": uncompiled_module_data.get("model")
+            "manufacturer": manufacturer,
+            "model": uncompiled_module_data.get("model"),
+            "part_number": uncompiled_module_data.get("part_number")
         }
 
         module_type = self.inventory.get_by_data(object_type=NBModuleType, data=module_type_data)
 
         if module_type is None:
-            log.warning(f"Module type is None with module type data {module_type_data}. Cannot find module with module data {uncompiled_module_data}")
-            module_type = {
-                "manufacturer": {
-                    "id": 1,
-                    "url": "http://127.0.0.1:8000/api/dcim/manufacturers/1/",
-                    "display": "redfish manufacturer test 1",
-                    "name": "redfish manufacturer test 1",
-                    "slug": "redfish-manufacturer-test-1",
-                    "description": ""
-                },
-                "model": "XXXXXX-B21",
-                "part_number": "",
-                "custom_fields": {}
-            }
+            log.debug(f"Module type is None with module type data {module_type_data}, creating a new one.")
+            self.inventory.add_object(object_type=NBModuleType, data=module_type_data)
+
+        if not isinstance(module_type, NBModuleType):
+            log.error(f"Module type is {type(module_type)} for module in bay {module_bay_id}.")
+            return
 
         if not isinstance(module_bay_id, int):
             try:
                 module_bay_id = int(module_bay_id)
             except:
-                log.warning(f"Module bay ID '{module_bay_id}' is not an int, found '{type(module_bay_id)}'. Cannot find module with data {uncompiled_module_data}")
+                log.error(f"Module bay ID '{module_bay_id}' is not an int, found '{type(module_bay_id)}'. Cannot find module with data {uncompiled_module_data}")
                 return
+
         module_bay = self.inventory.get_by_id(object_type=NBModuleBay, nb_id=module_bay_id)
+
+        if module_bay is None:
+            log.error(f"Module bay was not found for id '{module_bay_id}'. Cannot find module with data {uncompiled_module_data}")
 
         serial = uncompiled_module_data.get("serial")
         description = uncompiled_module_data.get("description")
@@ -1172,13 +1173,10 @@ class CheckRedfish(SourceBase):
         
 
         if module_object is None:
-            module_object = self.inventory.get_by_data(NBModule, compiled_module_data)
+            self.inventory.add_object(NBModule, data=compiled_module_data, source=self)
 
-        if module_object is None:
-            log.error(f"module object with data '{compiled_module_data}' not matched to inventory. is this module in netbox yet?")
-            return
-
-        module_object.update(data=compiled_module_data, source=self)
+        else:
+            module_object.update(data=compiled_module_data, source=self)
 
         return
 
