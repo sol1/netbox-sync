@@ -1146,6 +1146,10 @@ class CheckRedfish(SourceBase):
         if module_bay is None:
             log.error(f"Module bay was not found for id '{module_bay_id}'. Cannot find module with data {uncompiled_module_data}")
 
+        if module_bay.data.get("installed_module") is not None:
+            log.debug(f"Module bay '{module_bay.get_display_name()}' already has a module installed, cannot add one of type '{module_type.get_display_name}'")
+            return
+
         serial = uncompiled_module_data.get("serial")
         description = uncompiled_module_data.get("description")
         status = uncompiled_module_data.get("status")

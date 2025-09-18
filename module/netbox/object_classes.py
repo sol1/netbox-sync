@@ -2375,6 +2375,36 @@ class NBModuleType(NetBoxObject):
         }
         super().__init__(*args, **kwargs)
 
+        # handle the name for module type separately
+    def get_display_name(self, data=None, including_second_key=False):
+        
+        if data is not None:
+            try:
+                data = dict(data)
+            except:
+                log.warning(f"Get display name data for module type not a dict, got {type(data)}. "
+                    "Using object data.")
+                data = dict()
+        else:
+            data = dict()
+        
+        if data.get("manufacturer") is None:
+            data["manufacturer"] = self.data.get("manufacturer").data.get("name")
+        else:
+            data["manufacturer"] = data.get("manufacturer").data.get("name")
+
+        if data.get("model") is None:
+            data["model"] = self.data.get("model")
+        else:
+            data["model"] = data.get("model")
+
+        module_bay = data.get("manufacturer")
+        module_type = data.get("model")
+
+        myname = f"{module_bay}: {module_type}"
+
+        return myname
+
 
 class NBModule(NetBoxObject):
     name = "module"
