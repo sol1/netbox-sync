@@ -158,7 +158,7 @@ class CheckRedfish(SourceBase):
             self.update_storage_enclosure()
             self.update_network_adapter()
             self.update_network_interface()
-            self.update_module_before()
+            self.prepare_modules()
 
     def reset_inventory_state(self):
         """
@@ -914,22 +914,26 @@ class CheckRedfish(SourceBase):
 
         self.update_all_items(items)
 
-    def update_module_before(self):
+    def prepare_modules(self):
 
         module_items = list()
         for category_name, category_items in self.inventory_file_content.get("inventory", {}).items():
 
+            # skip categories that aren't properly formatted
             if not isinstance(category_items, list):
                 log.warning(f"Category items are not a list, '{type(category_items)}' was found")
                 continue
             
+            # skip categories that aren't modules
             if category_name in {"system", "power_control"}:
                 continue
             
             for item in category_items:
+                # skip absent items
                 if grab(item, "operation_status") in ["NotPresent", "Absent"]:
                     continue
 
+                # try to find the bay of the current module (item)
                 bay = grab(item, "bay")
                 try:
                     bay_id = int(bay) if bay is not None else None
@@ -941,6 +945,7 @@ class CheckRedfish(SourceBase):
                     log.debug(f"The module bay id is None. Cannot create module item '{grab(item, "name")}'")
                     continue
 
+                # add the current module as a dict to the list for processing
                 module_items.append({
                     "id": grab(item, "id"),
                     "module_type_name": category_name,
@@ -1090,15 +1095,15 @@ class CheckRedfish(SourceBase):
                     matched_modules[nb_module] = unmatched_modules.pop(0)
 
         for module_object, module_data in matched_modules.items():
-            self.update_module_after(module_data, module_object)
+            self.update_module(module_data, module_object)
 
         for unmatched_module in unmatched_modules:
-            self.update_module_after(unmatched_module)
+            self.update_module(unmatched_module)
 
-    def update_module_after(self, uncompiled_module_data: dict, module_object: NBModule = None):
+    def update_module(self, uncompiled_module_data: dict, module_object: NBModule = None):
         """
         Updates a single module with the supplied data.
-        If no module is provided a new one will be created.
+        If no module is provided a new one will be created or found from netbox.
 
         Parameters
         ----------
@@ -1111,10 +1116,8 @@ class CheckRedfish(SourceBase):
         -------
         None
         """
-
-        module_bay_id = uncompiled_module_data.get("module_bay")
-        module_bay = None
         
+        # determine the module type from the manufacturer/vendor, model and part number
         manufacturer_name = {"name": grab(uncompiled_module_data, "manufacturer")}
         manufacturer = self.inventory.get_by_data(NBManufacturer, manufacturer_name)
 
@@ -1134,11 +1137,16 @@ class CheckRedfish(SourceBase):
             log.error(f"Module type is {type(module_type)} for module in bay {module_bay_id}.")
             return
 
+        # determine the module bay
+        # note - this MUST exist in netbox already for module syncing
+        module_bay_id = uncompiled_module_data.get("module_bay")
+        module_bay = None
+
         if not isinstance(module_bay_id, int):
             try:
                 module_bay_id = int(module_bay_id)
             except:
-                log.error(f"Module bay ID '{module_bay_id}' is not an int, found '{type(module_bay_id)}'. Cannot find module with data {uncompiled_module_data}")
+                log.error(f"Module bay ID '{module_bay_id}' is not an int, found '{type(module_bay)}'. Cannot find module with data {uncompiled_module_data}")
                 return
 
         module_bay = self.inventory.get_by_id(object_type=NBModuleBay, nb_id=module_bay_id)
@@ -1146,15 +1154,22 @@ class CheckRedfish(SourceBase):
         if module_bay is None:
             log.error(f"Module bay was not found for id '{module_bay_id}'. Cannot find module with data {uncompiled_module_data}")
 
-        if module_bay.data.get("installed_module") is not None:
-            log.debug(f"Module bay '{module_bay.get_display_name()}' already has a module installed, cannot add one of type '{module_type.get_display_name}'")
+        # use existing module in bay if the primary (bay) and secondary (type) keys match
+        elif module_bay.data.get("installed_module") is not None and \
+            module_bay.data.get("installed_module").get("module_type") == uncompiled_module_data.get("module_type"):
+            log.debug2(f"Module already in bay '{module_bay_id}', using existing module '{module_bay.data.get("installed_module")}'.")
+            module_object = self.inventory.get_by_data(NBModule, module_bay.data.get("installed_module"))
+
+        # don't sync the module if the bay is occupied by a different module already
+        elif module_bay.data.get("installed_module") is not None:
+            log.warning(f"Module bay '{module_bay.get_display_name()}' already has a different module installed, cannot add one of type '{module_type.data.get("model")}'")
             return
 
         serial = uncompiled_module_data.get("serial")
         description = uncompiled_module_data.get("description")
         status = uncompiled_module_data.get("status")
 
-        # compile module data
+        # compile module data, starting with mandatory fields
         compiled_module_data = {
             "device": self.device_object,
             "module_type": module_type,
@@ -1165,6 +1180,7 @@ class CheckRedfish(SourceBase):
         if isinstance(description, list):
             description = ", ".join(description)
 
+        # add optional data if present
         if description is not None and len(description) > 0:
             compiled_module_data["description"] = description
         if serial is not None:
@@ -1173,12 +1189,12 @@ class CheckRedfish(SourceBase):
             compiled_module_data["status"] = status
         if module_type is not None:
             compiled_module_data["description"] = description
-        
-        
 
+        # add the module if it's not already in netbox
         if module_object is None:
             self.inventory.add_object(NBModule, data=compiled_module_data, source=self)
 
+        # update an existing module
         else:
             module_object.update(data=compiled_module_data, source=self)
 

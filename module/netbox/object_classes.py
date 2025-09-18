@@ -2375,9 +2375,9 @@ class NBModuleType(NetBoxObject):
         }
         super().__init__(*args, **kwargs)
 
-        # handle the name for module type separately
+        # handle the name for module type separately to avoid full json dumps
     def get_display_name(self, data=None, including_second_key=False):
-        
+
         if data is not None:
             try:
                 data = dict(data)
@@ -2429,7 +2429,7 @@ class NBModule(NetBoxObject):
         }
         super().__init__(*args, **kwargs)
 
-        # handle the module name separately
+        # handle the module name separately to avoid full json dumps
     def get_display_name(self, data=None, including_second_key=False):
         if data is not None:
             try:
