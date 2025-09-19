@@ -2360,7 +2360,7 @@ class NBModuleType(NetBoxObject):
     object_type = "dcim.moduletype"
     primary_key = "manufacturer"
     secondary_key = "model"
-    include_secondary_key_if_present = True
+    enforce_secondary_key = True
     prune = False
 
     def __init__(self, *args, **kwargs):
