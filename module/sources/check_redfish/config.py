@@ -71,6 +71,14 @@ class CheckRedfishConfig(ConfigBase):
                          default_value=False),
 
             ConfigOption(**config_option_ip_tenant_inheritance_order_definition),
+
+            ConfigOption("use_modules_instead_of_inventory_items",
+                        bool,
+                        description="""choose whether the script will use inventory items or modules.\n
+                        If using modules, the module bays MUST already be in netbox.\n
+                        NOTE - check your netbox version's support for modules and inventory items.\n
+                        Version 5 (future planned as of writing this note) removes inventory items, and modules are available from version 3.2 onward.""",
+                        default_value=False)
         ]
 
         super().__init__()

@@ -146,19 +146,22 @@ class CheckRedfish(SourceBase):
                                 self.device_object.get_display_name(including_second_key=True),
                                 device_serial))
 
+            # only use inventory items or modules depending on config option
+            if self.settings.use_modules_instead_of_inventory_items is False:
             # parse all components
-            self.update_device()
-            self.update_power_supply()
-            self.update_fan()
-            self.update_memory()
-            self.update_proc()
-            self.update_manager()               # reads manager name to set it via update_network_interface for BMC
-            self.update_physical_drive()
-            self.update_storage_controller()
-            self.update_storage_enclosure()
-            self.update_network_adapter()
-            self.update_network_interface()
-            self.prepare_modules()
+                self.update_device()
+                self.update_power_supply()
+                self.update_fan()
+                self.update_memory()
+                self.update_proc()
+                self.update_manager()               # reads manager name to set it via update_network_interface for BMC
+                self.update_physical_drive()
+                self.update_storage_controller()
+                self.update_storage_enclosure()
+                self.update_network_adapter()
+                self.update_network_interface()
+            else:
+                self.prepare_modules()              # updates and adds module related objects
 
     def reset_inventory_state(self):
         """
@@ -954,7 +957,6 @@ class CheckRedfish(SourceBase):
                     "module_bay": bay_id,
                     "serial": grab(item, "serial"),
                     "full_name": grab(item, "name") or f"{category_name} {bay}",
-                    "manufacturer": grab(self.device_object, "data.device_type.data.manufacturer.data.name"),
                     "custom_fields": {
                         "firmware": grab(item, "firmware"),
                         "size": grab(item, "capacity_in_watt") or grab(item, "size"),
@@ -1116,10 +1118,20 @@ class CheckRedfish(SourceBase):
         -------
         None
         """
-        
+
+        module_bay_id = uncompiled_module_data.get("module_bay")
+        module_bay = None
+
         # determine the module type from the manufacturer/vendor, model and part number
-        manufacturer_name = {"name": grab(uncompiled_module_data, "manufacturer")}
+        manufacturer_name = {"name": uncompiled_module_data.get("vendor")}
         manufacturer = self.inventory.get_by_data(NBManufacturer, manufacturer_name)
+
+        if manufacturer is None:
+            manufacturer = self.inventory.add_object(object_type=NBManufacturer, data=manufacturer_name)
+
+        if manufacturer is None:
+            log.error(f"Could not find or create manufacturer for module in bay '{module_bay_id}' with name '{manufacturer_name}'. Returning.")
+            return
 
         module_type_data = {
             "manufacturer": manufacturer,
@@ -1130,18 +1142,15 @@ class CheckRedfish(SourceBase):
         module_type = self.inventory.get_by_data(object_type=NBModuleType, data=module_type_data)
 
         if module_type is None:
-            log.debug(f"Module type is None with module type data {module_type_data}, creating a new one.")
-            self.inventory.add_object(object_type=NBModuleType, data=module_type_data)
+            log.debug(f"Module type not found with module type data {module_type_data}, creating a new one.")
+            module_type = self.inventory.add_object(object_type=NBModuleType, data=module_type_data)
 
         if not isinstance(module_type, NBModuleType):
-            log.error(f"Module type is {type(module_type)} for module in bay {module_bay_id}.")
+            log.error(f"Module type is {type(module_type)} for module in bay '{module_bay_id}' from data.")
             return
 
         # determine the module bay
         # note - this MUST exist in netbox already for module syncing
-        module_bay_id = uncompiled_module_data.get("module_bay")
-        module_bay = None
-
         if not isinstance(module_bay_id, int):
             try:
                 module_bay_id = int(module_bay_id)

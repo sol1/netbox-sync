@@ -2387,7 +2387,7 @@ class NBModuleType(NetBoxObject):
                 data = dict()
         else:
             data = dict()
-        
+
         if data.get("manufacturer") is None:
             data["manufacturer"] = self.data.get("manufacturer").data.get("name")
         else:
