@@ -952,7 +952,6 @@ class CheckRedfish(SourceBase):
                 # skip modules missing essential data
                 missing_essential = False
                 for essential_field in ["bay", manufacturer, "model"]:
-                    log.debug(f"essential field: {essential_field}")
                     if grab(item, essential_field) is None:
                         log.warning(f"No {essential_field} found for {category_name} '{grab(item, "id")}'.")
                         missing_essential = True
