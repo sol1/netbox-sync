@@ -926,11 +926,11 @@ class CheckRedfish(SourceBase):
             if not isinstance(category_items, list):
                 log.warning(f"Category items are not a list, '{type(category_items)}' was found")
                 continue
-            
-            # skip categories that aren't modules
-            if category_name in {"system", "power_control"}:
+
+            # only process categories that have bays (i.e. that can be modules)
+            if category_name not in {"power_supply", "physical_drive"}:
                 continue
-            
+
             for item in category_items:
                 # skip absent items
                 if grab(item, "operation_status") in ["NotPresent", "Absent"]:
@@ -939,20 +939,32 @@ class CheckRedfish(SourceBase):
                 # try to find the bay of the current module (item)
                 bay = grab(item, "bay")
                 try:
-                    bay_id = int(bay) if bay is not None else None
+                    bay_id = int(bay)
                 except ValueError:
-                    log.warning(f"Invalid bay for module {grab(item, 'name')}, setting to None.")
-                    bay_id = None
+                    log.warning(f"Invalid bay for module {grab(item, 'name')}, cannot sync {category_name} '{grab(item, "id")}'.")
+                    continue
 
-                if bay_id is None:
-                    log.debug(f"The module bay id is None. Cannot create module item '{grab(item, "name")}'")
+                # handle different module types using manufacturer/vendor as their data field
+                manufacturer = "vendor"
+                if grab(item, manufacturer) is None:
+                    manufacturer = "manufacturer"
+                
+                # skip modules missing essential data
+                missing_essential = False
+                for essential_field in ["bay", manufacturer, "model"]:
+                    log.debug(f"essential field: {essential_field}")
+                    if grab(item, essential_field) is None:
+                        log.warning(f"No {essential_field} found for {category_name} '{grab(item, "id")}'.")
+                        missing_essential = True
+                        break
+                if missing_essential:
                     continue
 
                 # add the current module as a dict to the list for processing
                 module_items.append({
                     "id": grab(item, "id"),
                     "module_type_name": category_name,
-                    "vendor": grab(item, "vendor"),
+                    "manufacturer": grab(item, manufacturer),
                     "model": grab(item, "model"),
                     "module_bay": bay_id,
                     "serial": grab(item, "serial"),
@@ -1123,7 +1135,7 @@ class CheckRedfish(SourceBase):
         module_bay = None
 
         # determine the module type from the manufacturer/vendor, model and part number
-        manufacturer_name = {"name": uncompiled_module_data.get("vendor")}
+        manufacturer_name = {"name": uncompiled_module_data.get("manufacturer")}
         manufacturer = self.inventory.get_by_data(NBManufacturer, manufacturer_name)
 
         if manufacturer is None:
