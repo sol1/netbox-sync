@@ -2388,14 +2388,14 @@ class NBModuleType(NetBoxObject):
         else:
             data = dict()
 
-        if data.get("manufacturer") is None:
+        if data.get("manufacturer") is None and self.data.get("manufacturer") is not None:
             data["manufacturer"] = self.data.get("manufacturer").data.get("name")
-        else:
+        elif data.get("manufacturer") is not None:
             data["manufacturer"] = data.get("manufacturer").data.get("name")
 
-        if data.get("model") is None:
+        if data.get("model") is None and self.data.get("model") is not None:
             data["model"] = self.data.get("model")
-        else:
+        elif data.get("model") is not None:
             data["model"] = data.get("model")
 
         module_bay = data.get("manufacturer")
@@ -2441,14 +2441,14 @@ class NBModule(NetBoxObject):
         else:
             data = dict()
         
-        if data.get("module_bay") is None:
+        if data.get("module_bay") is None and self.data.get("module_bay") is not None:
             data["module_bay"] = self.data.get("module_bay").data.get("name")
-        else:
+        elif data.get("module_bay") is not None:
             data["module_bay"] = data.get("module_bay").data.get("name")
 
-        if data.get("module_type") is None:
+        if data.get("module_type") is None and self.data.get("module_type") is not None:
             data["module_type"] = self.data.get("module_type").data.get("model")
-        else:
+        elif data.get("module_type") is not None:
             data["module_type"] = data.get("module_type").data.get("model")
 
         module_bay = data.get("module_bay")

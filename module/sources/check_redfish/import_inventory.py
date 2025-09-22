@@ -933,7 +933,7 @@ class CheckRedfish(SourceBase):
 
             for item in category_items:
                 # skip absent items
-                if grab(item, "operation_status") in ["NotPresent", "Absent"]:
+                if grab(item, "operation_status") in {"NotPresent", "Absent"}:
                     continue
 
                 # try to find the bay of the current module (item)
@@ -967,7 +967,7 @@ class CheckRedfish(SourceBase):
                     "model": grab(item, "model"),
                     "module_bay": bay_id,
                     "serial": grab(item, "serial"),
-                    "full_name": grab(item, "name") or f"{category_name} {bay}",
+                    "full_name": grab(item, "name") or f"{bay}: {category_name}",
                     "custom_fields": {
                         "firmware": grab(item, "firmware"),
                         "size": grab(item, "capacity_in_watt") or grab(item, "size"),
@@ -1081,7 +1081,7 @@ class CheckRedfish(SourceBase):
         current_modules = dict()
         for module in self.inventory.get_all_items(NBModule):
             if grab(module, "data.device") == self.device_object:
-                current_modules[grab(module, "data.name")] = module
+                current_modules[module.get_display_name()] = module
 
         # sort modules by display name
         current_modules = dict(sorted(current_modules.items()))
