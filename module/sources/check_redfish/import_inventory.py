@@ -1177,7 +1177,7 @@ class CheckRedfish(SourceBase):
         # use existing module in bay if the primary (bay) and secondary (type) keys match
         elif module_bay.data.get("installed_module") is not None and \
             module_bay.data.get("installed_module").get("module_type") == uncompiled_module_data.get("module_type"):
-            log.debug2(f"Module already in bay '{module_bay_id}', using existing module '{module_bay.data.get("installed_module")}'.")
+            log.debug2(f"Module already in bay '{module_bay_id}', using existing module '{module_bay.data.get("installed_module").get("display")}'.")
             module_object = self.inventory.get_by_data(NBModule, module_bay.data.get("installed_module"))
 
         # don't sync the module if the bay is occupied by a different module already
