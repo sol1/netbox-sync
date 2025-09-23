@@ -2391,7 +2391,7 @@ class NBModuleType(NetBoxObject):
         if data.get("manufacturer") is None and self.data.get("manufacturer") is not None:
             data["manufacturer"] = self.data.get("manufacturer").data.get("name")
         elif data.get("manufacturer") is not None:
-            data["manufacturer"] = data.get("manufacturer").data.get("name")
+            data["manufacturer"] = data.get("manufacturer")
 
         if data.get("model") is None and self.data.get("model") is not None:
             data["model"] = self.data.get("model")
