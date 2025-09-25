@@ -2367,7 +2367,10 @@ class VMWareHandler(SourceBase):
 
             if self.settings.track_vm_host:
                 logger.debug2(f"VM '{name}' parent host '{parent_name}' is being tracked")
-                vm_data["device"] = {"name": parent_name.split(".")[0], "site": site_name}
+                if self.settings.strip_host_domain_name is True
+                    vm_data["device"] = {"name": parent_name.split(".")[0], {"site": "name": site_name}}
+                else:
+                    vm_data["device"] = {"name": parent_name, {"site": "name": site_name}}
                 logger.debug2(vm_data)
 
         # Add adaption for added virtual disks in NetBox 3.7.0
