@@ -1130,7 +1130,7 @@ class VMWareHandler(SourceBase):
                        (object_type.name, device_vm_object.get_display_name(including_second_key=True)))
 
         # keep searching if no exact match was found
-        else:
+        elif self.settings.match_on_mac_address is True:
 
             logger.debug2(f"No exact match found. Trying to find {object_type.name} based on MAC addresses")
 
@@ -1166,7 +1166,7 @@ class VMWareHandler(SourceBase):
                        (object_type.name, device_vm_object.get_display_name(including_second_key=True)))
 
         # keep looking for devices with the same primary IP
-        else:
+        elif self.settings.match_on_ip_address is True:
 
             logger.debug2(f"No match found. Trying to find {object_type.name} based on primary IP addresses")
 

@@ -223,6 +223,16 @@ class VMWareConfig(ConfigBase):
                          description="""Try to find existing host based on serial number. This can cause issues
                          with blade centers if VMWare does not report the blades serial number properly.""",
                          default_value=True),
+            ConfigOption("match_on_mac_address",
+                         bool,
+                         description="""Try to find existing VM based on the mac address. This can cause issues
+                         if VMs have been renamed and replaced with new VM's of the same name with a new MAC while the old VM still exists.""",
+                         default_value=True),
+            ConfigOption("match_on_ip_address",
+                         bool,
+                         description="""Try to find existing VM based on the IP address. This can cause issues
+                         if VMs have been renamed and replaced with new VM's of the same name with a new IP while the old VM still exists.""",
+                         default_value=True),
             ConfigOption("collect_hardware_asset_tag",
                          bool,
                          description="Attempt to collect asset tags from vCenter hosts",
