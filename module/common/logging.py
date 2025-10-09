@@ -24,6 +24,7 @@ def setup_logging(log_to_screen=False,
                   log_retention=LOG_FILE_MAX_ROTATION,
                   log_level='INFO',
                   available_log_levels=DEFAULT_LOG_LEVELS,
+                  log_lastrun_errors=False,
                   ):
     """
     Initalize logging.
@@ -41,6 +42,11 @@ def setup_logging(log_to_screen=False,
         available_log_levels (list, optional): A list of available logging levels. Aliased as available_log_levels. Defaults to DEFAULT_LOG_LEVELS.
 
     """
+    # add additional error log if required
+    if log_lastrun_errors:
+        add_lastrun_error_log()
+        logger.debug("Additional error log enabled.")
+
     register_debug2_logging_level()
 
     # Check log level is valid
@@ -123,6 +129,46 @@ def add_screen_log(log_level):
                format=get_log_formats(log_level)
                )
 
+def add_lastrun_error_log(
+        log_level="ERROR",
+        log_file=f"{os.path.dirname(os.path.abspath(sys.argv[0]))}/netbox-sync-lastrun-errors.log",
+        ):
+    """
+    Add a file log handler for errors and above, performing a single manual rotation.
+
+    Behavior
+    --------
+    - If `<log_file>.1` exists, it is deleted.
+    - If `<log_file>` exists, it is renamed to `<log_file>.1`.
+    - A new file sink is added at `<log_file>` using Loguru with `colorize=False`
+      and the specified minimum log level.
+
+    Parameters
+    ----------
+    log_level : int or str, optional
+        Minimum level for the file handler (default "ERROR").
+    log_file : str, optional
+        Path to the log file (default is alongside the running script as
+        'netbox-sync-lastrun-errors.log').
+
+    Returns
+    -------
+    None
+    """
+    rotated = f"{os.path.splitext(log_file)[0]}.1{os.path.splitext(log_file)[1]}"
+
+    # Manual rotation before adding new log
+    if os.path.exists(rotated):
+        os.remove(rotated)
+    if os.path.exists(log_file):
+        os.rename(log_file, rotated)
+
+    logger.add(
+        log_file,
+        colorize=False,
+        level=log_level,
+        )
+    
 
 def debug2(self, message, *args, **kwargs):
     """Log a message at the custom "DEBUG2" level.

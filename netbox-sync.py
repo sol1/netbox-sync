@@ -55,7 +55,13 @@ def main():
     # remove startup screen logger and replace with standard logging
     logger.remove()
     # setup logging
-    setup_logging(log_level=log_level, enable_log_file=common_config.log_to_file, log_file=common_config.log_file, log_to_screen=args.log_to_screen)
+    setup_logging(
+        log_level=log_level, 
+        enable_log_file=common_config.log_to_file, 
+        log_file=common_config.log_file, 
+        log_to_screen=args.log_to_screen, 
+        log_lastrun_errors=common_config.log_lastrun_errors
+        )
 
     # now we are ready to go
     logger.info(f"Starting {__description__} v{__version__} ({__version_date__})")

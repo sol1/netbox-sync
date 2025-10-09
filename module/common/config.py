@@ -53,7 +53,15 @@ class CommonConfig(ConfigBase):
                          Log file will be rotated maximum {LOG_FILE_MAX_ROTATION} times once
                          the log file reaches size of {LOG_FILE_MAX_SIZE_IN_MB} MB
                          """,
-                         default_value="log/netbox_sync.log")
+                         default_value="log/netbox_sync.log"),
+            
+            ConfigOption("log_lastrun_errors",
+                         bool,
+                         description="""Enabling this options will write all errors for this run only 
+                         to a separate file called 'netbox-sync-lastrun-errors.log' in the same directory
+                         as netbox-sync.py.
+                         """,
+                         default_value=False),
         ]
 
         super().__init__()
