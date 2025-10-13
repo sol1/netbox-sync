@@ -3,7 +3,17 @@
 Controls the parameters for logging
     
 
-## `log_level`
+## TOC
+
+[Option: log_level](#log_level)
+[Option: log_to_file](#log_to_file)
+[Option: log_file](#log_file)
+[Option: log_lastrun_errors](#log_lastrun_errors)
+[Example (YAML)](#example-yaml)
+[Example (INI)](#example-ini)
+
+## Configuration Options
+### `log_level`
 **Type:** `str`  
 **Default:** `INFO`
 
@@ -20,20 +30,20 @@ Logging can be set to following log levels:
               troubleshooting, but will log any sensitive data contained within a query.
   TRACE:      Same as DEBUG3.
 
-## `log_to_file`
+### `log_to_file`
 **Type:** `bool`  
 **Default:** `False`
 
 Enabling this options will write all logs to a log file defined in 'log_file'
 
-## `log_file`
+### `log_file`
 **Type:** `str`  
 **Default:** `log/netbox_sync.log`
 
 Destination of the log file if "log_to_file" is enabled. Log file will be rotated maximum
 5 times once the log file reaches size of 10 MB
 
-## `log_lastrun_errors`
+### `log_lastrun_errors`
 **Type:** `bool`  
 **Default:** `False`
 
@@ -43,7 +53,6 @@ Enabling this options will write all errors for this run only to a separate file
 ## Example (YAML)
 
 ```
-
 common:
   log_level: "INFO"
   log_to_file: false
@@ -54,7 +63,6 @@ common:
 ## Example (INI)
 
 ```
-
 [common]
 log_level = INFO
 log_to_file = false

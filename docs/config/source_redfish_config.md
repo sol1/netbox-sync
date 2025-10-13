@@ -2,27 +2,43 @@
 
 Base class to parse config data
 
-## `enabled`
+## TOC
+
+[Option: enabled](#enabled)
+[Option: type](#type)
+[Option: inventory_file_path](#inventory_file_path)
+[Option: permitted_subnets](#permitted_subnets)
+[Option: overwrite_host_name](#overwrite_host_name)
+[Option: overwrite_power_supply_name](#overwrite_power_supply_name)
+[Option: overwrite_power_supply_attributes](#overwrite_power_supply_attributes)
+[Option: overwrite_interface_name](#overwrite_interface_name)
+[Option: overwrite_interface_attributes](#overwrite_interface_attributes)
+[Option: ip_tenant_inheritance_order](#ip_tenant_inheritance_order)
+[Example (YAML)](#example-yaml)
+[Example (INI)](#example-ini)
+
+## Configuration Options
+### `enabled`
 **Type:** `bool`  
 **Default:** `True`
 
 Defines if this source is enabled or not
 
-## `type`
+### `type`
 **Type:** `str`  
 **Required:** `true`  
 **Example:** `check_redfish`
 
 type of source. This defines which source handler to use
 
-## `inventory_file_path`
+### `inventory_file_path`
 **Type:** `str`  
 **Required:** `true`  
 **Example:** `/full/path/to/inventory/files`
 
 define the full path where the check_redfish inventory json files are located
 
-## `permitted_subnets`
+### `permitted_subnets`
 **Type:** `str`  
 **Default:** `None`  
 **Example:** `172.16.0.0/12, 10.0.0.0/8, 192.168.0.0/16, fd00::/8, !10.23.42.0/24`
@@ -31,42 +47,42 @@ IP networks eligible to be synced to NetBox. If an IP address is not part of thi
 then it WON'T be synced to NetBox. To excluded small blocks from bigger IP blocks a
 leading '!' has to be added
 
-## `overwrite_host_name`
+### `overwrite_host_name`
 **Type:** `bool`  
 **Default:** `False`
 
 define if the host name discovered via check_redfish overwrites the device host name in
 NetBox
 
-## `overwrite_power_supply_name`
+### `overwrite_power_supply_name`
 **Type:** `bool`  
 **Default:** `False`
 
 define if the name of the power supply discovered via check_redfish overwrites the power
 supply name in NetBox
 
-## `overwrite_power_supply_attributes`
+### `overwrite_power_supply_attributes`
 **Type:** `bool`  
 **Default:** `True`
 
 define if existing power supply attributes are overwritten with data discovered via
 check_redfish if False only data which is not preset in NetBox will be added
 
-## `overwrite_interface_name`
+### `overwrite_interface_name`
 **Type:** `bool`  
 **Default:** `False`
 
 define if the name of the interface discovered via check_redfish overwrites the interface
 name in NetBox
 
-## `overwrite_interface_attributes`
+### `overwrite_interface_attributes`
 **Type:** `bool`  
 **Default:** `False`
 
 define if existing interface attributes are overwritten with data discovered via
 check_redfish if False only data which is not preset in NetBox will be added
 
-## `ip_tenant_inheritance_order`
+### `ip_tenant_inheritance_order`
 **Type:** `str`  
 **Default:** `device, prefix`
 
@@ -81,7 +97,6 @@ If the device has a tenant then this one will be used. If not, the prefix tenant
 ## Example (YAML)
 
 ```
-
 source:
   enabled: true
   # type: "check_redfish"  # required
@@ -98,7 +113,6 @@ source:
 ## Example (INI)
 
 ```
-
 [source]
 enabled = true
 # type = check_redfish  ; required

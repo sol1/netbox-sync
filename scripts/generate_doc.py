@@ -21,6 +21,7 @@ import os
 import re
 import sys
 from textwrap import dedent
+from loguru import logger
 
 # --- Add project root to sys.path so "module" imports work ---
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -59,70 +60,122 @@ def find_config_classes(module):
 
 
 def generate_markdown_for_class(cls, heading_name: str | None = None):
-    """Generate Markdown for a single config class.
+    """Generate Markdown for a single config class with TOC and subsections."""
 
-    heading_name: Optional display title for the section heading (e.g. "Common").
-    If not provided, falls back to the class' section_name or class name.
-    """
-    lines = []
     section = getattr(cls, "section_name", cls.__name__)
     title = heading_name or section
-    lines.append(f"# {title} Configuration\n")
+    lines = [f"# {title} Configuration\n"]
+
+    # Add class docstring if present
     doc = inspect.getdoc(cls)
     if doc:
         lines.append(f"{doc}\n")
 
-    # Try a no-arg instantiation; if that fails, skip documenting the class
+    # Attempt to instantiate the config class
     try:
         instance = cls()
     except Exception:
         return "\n".join(lines)
 
-    # Helper to iterate options, flattening groups
+    # Helper: flatten ConfigOptionGroups
     def iter_options(opts):
         for item in opts:
-            # ConfigOptionGroup has an 'options' list we should expand
             if hasattr(item, "options") and not hasattr(item, "key"):
-                for sub in getattr(item, "options", []):
-                    yield sub
+                yield from getattr(item, "options", [])
             else:
                 yield item
 
-    for opt in iter_options(getattr(instance, "options", [])):
-        # ConfigOption has attributes: key, value_type, default_value, config_example, mandatory
-        name = getattr(opt, "key", None) or "<unknown>"
+    opts = list(iter_options(getattr(instance, "options", [])))
+    if not opts:
+        return "\n".join(lines)
+
+    # --- TOC ---
+    lines.extend(_render_toc(opts))
+
+    # --- Detailed option descriptions ---
+    lines.extend(_render_option_details(opts))
+
+    # --- Examples ---
+    lines.extend(_render_yaml_example(section, opts))
+    lines.extend(_render_ini_example(section, opts))
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------
+# --- Subsection functions -------------------------------------------
+# ---------------------------------------------------------------------
+
+def _render_toc(opts):
+    """Render a simple Markdown Table of Contents."""
+    lines = ["## TOC\n"]
+    for opt in opts:
+        key = getattr(opt, "key", "<unknown>")
+        anchor = key
+        lines.append(f"[Option: {key}](#{anchor})")
+    lines.append("[Example (YAML)](#example-yaml)")
+    lines.append("[Example (INI)](#example-ini)")
+    lines.append("\n## Configuration Options")  # newline
+    return lines
+
+def _render_table_section(opts):
+    """Render a minimal summary table (key/type/required/default)."""
+    lines = ["## Summary\n", "| Key | Type | Required | Default |", "|-----|------|-----------|----------|"]
+
+    for opt in opts:
+        key = getattr(opt, "key", "<unknown>")
+        value_type = getattr(opt, "value_type", str)
+        type_name = value_type.__name__ if hasattr(value_type, "__name__") else str(value_type)
+        mandatory = getattr(opt, "mandatory", False)
+        default_value = getattr(opt, "default_value", None)
+
+        # Simplify default rendering
+        if default_value is None:
+            default_value = "null"
+        elif isinstance(default_value, bool):
+            default_value = "true" if default_value else "false"
+        else:
+            default_value = str(default_value)
+
+        lines.append(f"| `{key}` | `{type_name}` | {'✅' if mandatory else '❌'} | `{default_value}` |")
+
+    lines.append("")  # newline after table
+    return lines
+
+
+def _render_option_details(opts):
+    """Render detailed sections for each option (type, default, description)."""
+    lines = []
+    for opt in opts:
+        name = getattr(opt, "key", "<unknown>")
         value_type = getattr(opt, "value_type", str)
         type_name = value_type.__name__ if hasattr(value_type, "__name__") else str(value_type)
         default_value = getattr(opt, "default_value", None)
         example = getattr(opt, "config_example", None)
         mandatory = getattr(opt, "mandatory", False)
 
-        # Description is a method via DescriptionFormatterMixin
         desc_callable = getattr(opt, "description", None)
         if callable(desc_callable):
             desc = desc_callable()
         else:
-            raw_desc = getattr(opt, "_description", "") or getattr(opt, "description", "")
-            desc = str(raw_desc)
-            if desc:
-                desc = dedent(desc).strip()
+            desc = getattr(opt, "_description", "") or getattr(opt, "description", "")
+            desc = str(desc).strip() if desc else ""
 
-        lines.append(f"## `{name}`")
-
+        lines.append(f"### `{name}`")
         meta = f"**Type:** `{type_name}`"
-        if mandatory:
-            meta += "  \n**Required:** `true`"
-        else:
-            meta += f"  \n**Default:** `{default_value}`"
+        meta += "  \n**Required:** `true`" if mandatory else f"  \n**Default:** `{default_value}`"
         if example is not None and example != default_value:
             meta += f"  \n**Example:** `{example}`"
         lines.append(meta + "\n")
 
         if desc:
-            lines.append(f"{desc}\n")
+            lines.append(f"{dedent(desc).strip()}\n")
 
-    # --- Append Examples with default values ---
+    return lines
 
+
+def _render_yaml_example(section, opts):
+    """Render YAML example block."""
     def yaml_value(val):
         if isinstance(val, bool):
             return "true" if val else "false"
@@ -130,59 +183,57 @@ def generate_markdown_for_class(cls, heading_name: str | None = None):
             return str(val)
         if val is None:
             return "null"
-        # escape backslashes for Windows paths
         sval = str(val)
-        # Quote strings to be safe
         return f'"{sval.replace("\\", "\\\\")}"'
 
-    # YAML example
-    lines.append("## Example (YAML)\n")
-    lines.append("```\n")
-    lines.append(f"{section}:")
-    for opt in iter_options(getattr(instance, "options", [])):
+    lines = ["## Example (YAML)\n", "```", f"{section}:"]
+    for opt in opts:
+        key = opt.key
         default_value = getattr(opt, "default_value", None)
         mandatory = getattr(opt, "mandatory", False)
         example = getattr(opt, "config_example", None)
-        if default_value is not None:
-            lines.append(f"  {opt.key}: {yaml_value(default_value)}")
-        else:
-            if mandatory:
-                placeholder = example if example is not None else "<REQUIRED>"
-                lines.append(f"  # {opt.key}: {yaml_value(placeholder)}  # required")
-            else:
-                if example is not None:
-                    lines.append(f"  # {opt.key}: {yaml_value(example)}  # optional")
-                else:
-                    lines.append(f"  # {opt.key}: null  # optional")
-    lines.append("```\n")
 
-    # INI example
-    lines.append("## Example (INI)\n")
+        if default_value is not None:
+            lines.append(f"  {key}: {yaml_value(default_value)}")
+        elif mandatory:
+            placeholder = example if example is not None else "<REQUIRED>"
+            lines.append(f"  # {key}: {yaml_value(placeholder)}  # required")
+        else:
+            if example is not None:
+                lines.append(f"  # {key}: {yaml_value(example)}  # optional")
+            else:
+                lines.append(f"  # {key}: null  # optional")
     lines.append("```\n")
-    lines.append(f"[{section}]")
-    for opt in iter_options(getattr(instance, "options", [])):
+    return lines
+
+
+def _render_ini_example(section, opts):
+    """Render INI example block."""
+    def ini_value(val):
+        if isinstance(val, bool):
+            return "true" if val else "false"
+        return str(val)
+
+    lines = ["## Example (INI)\n", "```", f"[{section}]"]
+    for opt in opts:
+        key = opt.key
         default_value = getattr(opt, "default_value", None)
         mandatory = getattr(opt, "mandatory", False)
         example = getattr(opt, "config_example", None)
-        def ini_value(val):
-            if isinstance(val, bool):
-                return "true" if val else "false"
-            return str(val)
 
         if default_value is not None:
-            lines.append(f"{opt.key} = {ini_value(default_value)}")
+            lines.append(f"{key} = {ini_value(default_value)}")
+        elif mandatory:
+            placeholder = example if example else "<REQUIRED>"
+            lines.append(f"# {key} = {placeholder}  ; required")
         else:
-            if mandatory:
-                placeholder = example if example is not None else "<REQUIRED>"
-                lines.append(f"# {opt.key} = {ini_value(placeholder)}  ; required")
+            if example is not None:
+                lines.append(f"# {key} = {example}  ; optional")
             else:
-                if example is not None:
-                    lines.append(f"# {opt.key} = {ini_value(example)}  ; optional")
-                else:
-                    lines.append(f"# {opt.key} =  ; optional")
+                lines.append(f"# {key} =  ; optional")
     lines.append("```\n")
+    return lines
 
-    return "\n".join(lines)
 
 
 def main():
@@ -190,13 +241,13 @@ def main():
 
     for key, path in CONFIG_SOURCES.items():
         if not os.path.exists(path):
-            print(f"[WARN] Skipping {key} — {path} not found")
+            logger.warning(f"Skipping {key} — {path} not found")
             continue
 
         module = load_module_from_path(f"{key}_config", path)
         classes = find_config_classes(module)
         if not classes:
-            print(f"[INFO] No config classes found in {key}")
+            logger.info(f"No config classes found in {key}")
             continue
 
         # Build snake_case filename from the CONFIG_SOURCES key
@@ -207,7 +258,7 @@ def main():
             return s.strip("_")
 
         out_path = os.path.join(DOCS_DIR, f"{snake_case(key)}_config.md")
-        print(f"[+] Writing {out_path}")
+        logger.info(f"[+] Writing {out_path}")
 
         with open(out_path, "w", encoding="utf-8") as f:
             for cls in classes:
