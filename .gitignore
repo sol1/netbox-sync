@@ -27,6 +27,12 @@ cache/*
 # ...but do not ignore the settings example
 !settings-example.ini
 
+# Ignore all .sh files...
+*.sh
+
+# ...but do not ignore the setup script
+!setup.sh
+
 # Virtual environments
 venv/
 .venv/
