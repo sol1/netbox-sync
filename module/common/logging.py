@@ -175,8 +175,7 @@ def debug2(self, message, *args, **kwargs):
 
     Forwards all positional and keyword arguments to self.log.
     """
-
-    return self.log("DEBUG2", message, *args, **kwargs)
+    return self.opt(depth=2).log("DEBUG2", message, *args, **kwargs)
 
 def register_debug2_logging_level():
     """Register a custom "DEBUG2" level and attach a logger.debug2 helper."""
