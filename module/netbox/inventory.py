@@ -130,6 +130,8 @@ class NetBoxInventory:
                 if object_name_to_find is None:
                     object_name_to_find = this_object.get_display_name(data, including_second_key=True)
 
+                logger.trace(f"if {str(object_name_to_find).lower()} == {str(this_object.get_display_name(including_second_key=True)).lower()} = {str(object_name_to_find).lower() == str(this_object.get_display_name(including_second_key=True)).lower()}")
+
                 # compare lower key
                 if f"{object_name_to_find}".lower() == \
                         f"{this_object.get_display_name(including_second_key=True)}".lower():
@@ -138,7 +140,6 @@ class NetBoxInventory:
 
         # try to match all data attributes
         else:
-
             for this_object in self.get_all_items(object_type):
                 all_items_match = True
                 for attr_name, attr_value in data.items():

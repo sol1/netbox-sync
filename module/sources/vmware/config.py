@@ -143,6 +143,11 @@ class VMWareConfig(ConfigBase):
                                              description="""Same as cluster site but on host level.
                                              If unset it will fall back to cluster_site_relation""",
                                              config_example="nyc02.* = New York, ffm01.* = Frankfurt"),
+                                ConfigOption("vm_site_relation",
+                                             str,
+                                             description="""Same as cluster and host site but on vm level.
+                                             If unset it will fall back to cluster_site_relation""",
+                                             config_example="vm01.* = New York, ffm01.* = Frankfurt"),
                                 ConfigOption("cluster_scope_type_relation", 
                                              str,
                                              description="""This option defines the scope type for a cluster.

@@ -452,7 +452,7 @@ class VMWareHandler(SourceBase):
 
         Parameters
         ----------
-        object_type: (NBCluster, NBDevice)
+        object_type: (NBCluster, NBDevice, NBVM)
             object type to check site relation for
         object_name: str
             object name to check site relation for
@@ -464,13 +464,18 @@ class VMWareHandler(SourceBase):
         str: site name if a relation was found
         """
 
-        if object_type not in [NBCluster, NBDevice]:
-            raise ValueError(f"Object must be a '{NBCluster.name}' or '{NBDevice.name}'.")
+        if object_type not in [NBCluster, NBDevice, NBVM]:
+            raise ValueError(f"Object must be a '{NBCluster.name}', '{NBDevice.name}' or '{NBVM.name}'.")
 
         logger.debug2(f"Trying to find site name for {object_type.name} '{object_name}'")
 
         # check if site was provided in config
-        relation_name = "host_site_relation" if object_type == NBDevice else "cluster_site_relation"
+        if object_type in [NBVM]:
+            relation_name = "vm_site_relation"
+        elif object_type in [NBDevice]:
+            relation_name = "host_site_relation"
+        else:
+            relation_name = "cluster_site_relation"
 
         site_name = self.get_object_relation(object_name, relation_name)
 
@@ -495,8 +500,6 @@ class VMWareHandler(SourceBase):
         if object_type == NBCluster and site_name == "<NONE>":
             site_name = None
             logger.debug2(f"Site relation for '{object_name}' set to None")
-
-        logger.debug2(f"Returning site name '{site_name}' for {object_type.name} '{object_name}'.")
         
         return site_name
     
@@ -2290,13 +2293,20 @@ class VMWareHandler(SourceBase):
         #
 
         # check if cluster is a Standalone ESXi
-        site_name = nb_cluster_object.get_site_name()
+        site_name = None
+        
+        if self.settings.vm_site_relation is not None:
+            site_name = self.get_site_name(NBVM, name)
+        if site_name is None:
+            nb_cluster_object.get_site_name()
         if site_name is None:
             site_name = self.get_site_name(NBCluster, cluster_full_name)
 
         # first check against vm_platform_relation
         platform = get_string_or_none(grab(obj, "config.guestFullName"))
         platform = get_string_or_none(grab(obj, "guest.guestFullName", fallback=platform))
+
+        logger.debug2(f"VM '{name}' initial platform '{platform}'")
 
         # extract prettyName from extraConfig exposed by guest tools
         extra_config = {x.key: x.value for x in grab(obj, "config.extraConfig", fallback=[])
@@ -2319,6 +2329,7 @@ class VMWareHandler(SourceBase):
                 platform = f'{platform} {detailed_data_dict.get("distroVersion")}'
 
         if platform is not None:
+            logger.debug2(f"VM '{name}' platform before relation match determined as '{platform}'")
             platform = self.get_object_relation(platform, "vm_platform_relation", fallback=platform)
 
         hardware_devices = grab(obj, "config.hardware.device", fallback=list())
