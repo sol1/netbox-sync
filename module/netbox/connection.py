@@ -153,11 +153,21 @@ class NetBoxHandler:
         requests.Session: session handler of new NetBox session
         """
 
-        header = {
-            "Authorization": f"Token {self.settings.api_token}",
-            "User-Agent": f"netbox-sync/{__version__}",
-            "Content-Type": "application/json"
-        }
+        # differentiate for api v1 and v2
+        if self.settings.api_token.startswith("nbt_"):
+            logger.debug("using api v2 for netbox connection")
+            header = {
+                "Authorization": f"Bearer {self.settings.api_token}",
+                "User-Agent": f"netbox-sync/{__version__}",
+                "Content-Type": "application/json"
+            }
+        else:
+            log.warning("using legacy api v1, which is deprecated in netbox v4.6 and will be removed in v5.0")
+            header = {
+                "Authorization": f"Token {self.settings.api_token}",
+                "User-Agent": f"netbox-sync/{__version__}",
+                "Content-Type": "application/json"
+            }
 
         session = requests.Session()
         session.headers.update(header)
